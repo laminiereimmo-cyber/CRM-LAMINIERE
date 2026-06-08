@@ -4,7 +4,7 @@ const STORE_VERSION_KEY = "laminiere-crm-version";
 const CLOUD_CONFIG_KEY = "laminiere-crm-cloud-config";
 const CLOUD_META_KEY = "laminiere-crm-cloud-meta";
 const LOCAL_UPDATED_KEY = "laminiere-crm-local-updated-at";
-const APP_VERSION = "0.19.5";
+const APP_VERSION = "0.19.6";
 const ANNUAL_REVENUE_TARGET_HT = 100800;
 let selectedRevenueYear = String(new Date().getFullYear());
 
