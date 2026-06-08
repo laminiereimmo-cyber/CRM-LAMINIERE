@@ -401,7 +401,7 @@ const seedData = {
       email: "jonathan.cohen13@orange.fr",
       phone: "à renseigner",
       source: "Gabriel Valette",
-      "Client"
+      taper: "Client",
       search: "Accompagnement investissement ancien",
       patrimoine: "Client en accompagnement",
       auditStatus: "Payé",
