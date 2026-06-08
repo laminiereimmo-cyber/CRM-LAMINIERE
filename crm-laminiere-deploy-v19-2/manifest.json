@@ -1,0 +1,18 @@
+{
+  "name": "CRM LaMinière & Hunb'up",
+  "short_name": "LaMinière CRM",
+  "description": "CRM pour suivre les clients LaMinière de l'audit patrimonial à la bascule Hunb'up.",
+  "start_url": "./index.html#dashboard",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f7f9f5",
+  "theme_color": "#0c7a69",
+  "icons": [
+    {
+      "src": "logo-laminiere.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
