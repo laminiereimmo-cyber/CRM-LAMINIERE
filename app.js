@@ -4,8 +4,11 @@ const STORE_VERSION_KEY = "laminiere-crm-version";
 const CLOUD_CONFIG_KEY = "laminiere-crm-cloud-config";
 const CLOUD_META_KEY = "laminiere-crm-cloud-meta";
 const LOCAL_UPDATED_KEY = "laminiere-crm-local-updated-at";
-const APP_VERSION = "0.19.7";
-const ANNUAL_REVENUE_TARGET_HT = 100800;
+const APP_VERSION = "0.19.9";
+const REVENUE_TARGETS_HT = {
+  2026: 100800,
+  2027: null
+};
 let selectedRevenueYear = String(new Date().getFullYear());
 
 const photos = [
@@ -70,15 +73,20 @@ const documentGroups = {
     ]
   },
   gvh: {
-    title: "Socle Hunb'up - placement financier",
+    title: "Socle Hunb'up - CRM CGP",
     target: "gvhDocs",
     items: [
-      ["kyc", "KYC et connaissance client", "Identité, domicile, situation professionnelle, origine des fonds."],
-      ["risk", "Profil de risque", "Questionnaire, horizon, pertes acceptables, expérience financière."],
-      ["allocation", "Objectif d'allocation", "Sécurité, rendement, disponibilité, fiscalité, transmission."],
-      ["envelope", "Enveloppe", "Assurance vie, PER, CTO, liquidités, existants a reprendre."],
-      ["amount", "Montant et versements", "Montant initial, versements programmés, poche sécurité."],
-      ["review", "Rendez-vous de suivi", "Fréquence, arbitrages, lien avec revenus locatifs."]
+      ["der", "DER signé", "Document d'entrée en relation et informations réglementaires remis au client."],
+      ["identity", "Identité et coordonnées", "État civil, pièce d'identité, domicile, téléphone, e-mail."],
+      ["family", "Situation familiale", "Mariage/PACS, régime matrimonial, enfants, personnes à charge, libéralités."],
+      ["tax", "Résidence fiscale", "Pays de résidence fiscale, numéro fiscal, TMI, IFI si applicable."],
+      ["ppeUs", "PPE / US Person", "Personne politiquement exposée, lien PPE, citoyenneté ou résidence US, TIN."],
+      ["kyc", "Recueil d'informations client", "Situation professionnelle, revenus, charges, patrimoine, origine des fonds."],
+      ["risk", "Profil investisseur", "Connaissance, expérience, horizon, pertes acceptables, profil de risque."],
+      ["objectives", "Objectifs patrimoniaux", "Retraite, protection famille, transmission, capital, fiscalité, disponibilité."],
+      ["envelope", "Enveloppes et allocation", "Assurance vie, PER, CTO, trésorerie, SCPI, existants à reprendre."],
+      ["dcc", "DCC / synthèse conseil", "Document de connaissance client ou synthèse patrimoniale à jour."],
+      ["review", "Suivi annuel", "Fréquence, arbitrages, mise à jour situation et objectifs."]
     ]
   }
 };
@@ -1329,7 +1337,10 @@ function renderMetrics() {
   const deals = activeDeals();
   const projectDeals = deals.filter((deal) => deal.projectId && !deal.auditDeal && deal.countsAsOperation !== false);
   const offerValue = deals.reduce((sum, deal) => sum + Number(deal.value || 0), 0);
-  const targetProgress = Math.min(100, Math.round((offerValue / ANNUAL_REVENUE_TARGET_HT) * 100));
+  const revenueTarget = revenueTargetForYear(selectedRevenueYear);
+  const targetProgress = revenueTarget ? Math.min(100, Math.round((offerValue / revenueTarget) * 100)) : 0;
+  const targetNote = revenueTarget ? `objectif ${formatExactMoney(revenueTarget)} HT` : selectedRevenueYear === "2025" ? "année de lancement · pas d'objectif annuel" : "objectif annuel à définir";
+  const progressText = revenueTarget ? `${targetProgress}% de l'objectif annuel` : selectedRevenueYear === "2025" ? "CA réalisé sans objectif annuel" : "Prévision à cadrer";
   const contacts = activeContacts();
   const hotContacts = contacts.filter((contact) => !["Bascule Hunb'up", "Finalisé"].includes(contact.status)).length;
   const openTasks = state.tasks.filter((task) => !task.done).length;
@@ -1339,9 +1350,9 @@ function renderMetrics() {
     {
       label: `CA prévisionnel ${selectedRevenueYear}`,
       value: `${formatExactMoney(offerValue)} HT`,
-      note: `${projectDeals.length} projets actifs · objectif ${formatExactMoney(ANNUAL_REVENUE_TARGET_HT)} HT`,
+      note: `${projectDeals.length} projets actifs · ${targetNote}`,
       action: "revenue-forecast",
-      extra: `<div class="metric-progress" aria-label="${targetProgress}% de l'objectif annuel"><span style="width:${targetProgress}%"></span></div><small>${targetProgress}% de l'objectif annuel</small>`
+      extra: `<div class="metric-progress" aria-label="${progressText}"><span style="width:${revenueTarget ? targetProgress : 100}%"></span></div><small>${progressText}</small>`
     },
     { label: "Clients actifs", value: hotContacts, note: "Prospects et opérations LaMinière" },
     { label: "Relances ouvertes", value: openTasks, note: "À traiter cette semaine" },
@@ -1360,6 +1371,10 @@ function renderMetrics() {
       `
     )
     .join("");
+}
+
+function revenueTargetForYear(year = selectedRevenueYear) {
+  return REVENUE_TARGETS_HT[String(year)] ?? null;
 }
 
 function revenueForecastRows() {
@@ -1386,14 +1401,15 @@ function revenueForecastRows() {
 function openRevenueForecastModal() {
   const rows = revenueForecastRows();
   const total = rows.reduce((sum, row) => sum + row.value, 0);
-  const progress = Math.min(100, Math.round((total / ANNUAL_REVENUE_TARGET_HT) * 100));
+  const revenueTarget = revenueTargetForYear(selectedRevenueYear);
+  const progress = revenueTarget ? Math.min(100, Math.round((total / revenueTarget) * 100)) : null;
   const realized = rows.filter((row) => row.status === "Réalisé / encaissé").reduce((sum, row) => sum + row.value, 0);
   const pending = total - realized;
   document.querySelector("#revenueForecastTitle").textContent = `CA prévisionnel ${selectedRevenueYear}`;
   document.querySelector("#revenueForecastSummary").innerHTML = `
     <div><span>Total prévisionnel</span><strong>${formatExactMoney(total)} HT</strong></div>
-    <div><span>Objectif annuel</span><strong>${formatExactMoney(ANNUAL_REVENUE_TARGET_HT)} HT</strong></div>
-    <div><span>Avancement</span><strong>${progress}%</strong></div>
+    <div><span>Objectif annuel</span><strong>${revenueTarget ? `${formatExactMoney(revenueTarget)} HT` : "À définir"}</strong></div>
+    <div><span>Avancement</span><strong>${progress === null ? "Non applicable" : `${progress}%`}</strong></div>
     <div><span>Réalisé / encaissé</span><strong>${formatExactMoney(realized)} HT</strong></div>
     <div><span>En cours</span><strong>${formatExactMoney(pending)} HT</strong></div>
   `;
@@ -1418,7 +1434,7 @@ function openRevenueForecastModal() {
 }
 
 function availableRevenueYears() {
-  const years = new Set([String(new Date().getFullYear())]);
+  const years = new Set([String(new Date().getFullYear()), "2027"]);
   state.contacts.map(ensureContactDefaults).forEach((contact) => {
     if (isAuditRevenueRecognized(contact)) years.add(auditRevenueYear(contact));
     activeProjects(contact).forEach((project) => years.add(projectRevenueYear(project)));
@@ -1798,6 +1814,17 @@ function ensureContactDefaults(contact) {
     gvhRisk: "À définir",
     gvhEnvelope: "",
     gvhAmount: 0,
+    cgpStatus: "À qualifier",
+    cgpMission: "Bilan patrimonial",
+    cgpObjectives: "",
+    cgpHorizon: "À définir",
+    cgpExperience: "À qualifier",
+    cgpFamilyStatus: "",
+    cgpTaxResidence: "France",
+    cgpTmi: 0,
+    cgpPpe: "Non vérifié",
+    cgpUsPerson: "Non vérifié",
+    cgpCompliance: "À compléter",
     docChecks: {},
     timelineChecks: {},
     archivedAt: "",
@@ -2140,9 +2167,20 @@ const clientFieldGroups = {
   ],
   gvh: [
     ["gvhStatus", "Statut Hunb'up", "select", ["Pas encore", "À préparer", "Prêt à basculer", "RDV planifié", "Client Hunb'up", "Archivé"]],
+    ["cgpStatus", "Statut CGP", "select", ["À qualifier", "DER à envoyer", "DER signé", "Recueil en cours", "DCC à préparer", "Conseil remis", "Suivi annuel"]],
+    ["cgpMission", "Mission", "select", ["Bilan patrimonial", "Assurance vie", "PER", "Allocation financière", "Transmission", "Trésorerie", "Suivi annuel"]],
     ["gvhEnvelope", "Enveloppe / solution", "select", ["", "Assurance vie", "PER", "CTO", "Trésorerie", "Allocation globale"]],
     ["gvhAmount", "Montant à placer / suivre", "number"],
     ["gvhRisk", "Profil de risque", "select", ["À définir", "Prudent", "Équilibré", "Dynamique"]],
+    ["cgpHorizon", "Horizon", "select", ["À définir", "Court terme", "Moyen terme", "Long terme", "Retraite", "Transmission"]],
+    ["cgpExperience", "Connaissance / expérience", "select", ["À qualifier", "Débutant", "Informé", "Averti", "Expert"]],
+    ["cgpObjectives", "Objectifs patrimoniaux", "text", null, "full"],
+    ["cgpFamilyStatus", "Situation familiale / régime", "text"],
+    ["cgpTaxResidence", "Résidence fiscale", "text"],
+    ["cgpTmi", "TMI estimée (%)", "number"],
+    ["cgpPpe", "PPE", "select", ["Non vérifié", "Non", "Oui", "Lien PPE"]],
+    ["cgpUsPerson", "US Person", "select", ["Non vérifié", "Non", "Oui"]],
+    ["cgpCompliance", "Conformité", "select", ["À compléter", "Complet", "À mettre à jour", "Bloquant"]],
     ["company", "Entreprise / contexte pro", "text"],
     ["last", "Dernier contact", "text"],
     ["type", "Segment", "select", ["Prospect", "Qualifié", "Client", "Partenaire", "Client Hunb'up"]]
@@ -2636,7 +2674,7 @@ function saveActiveContact(form) {
   const values = Object.fromEntries(new FormData(form).entries());
   readProjectInputs(contact);
   Object.entries(values).forEach(([key, value]) => {
-    const numericFields = ["auditFee", "apport", "capacite", "worksBudget", "gvhAmount"];
+    const numericFields = ["auditFee", "apport", "capacite", "worksBudget", "gvhAmount", "cgpTmi"];
     contact[key] = numericFields.includes(key) ? Number(value || 0) : value;
   });
   contact.name = buildContactDisplayName(contact.firstName, contact.lastName, contact.name);
@@ -2666,6 +2704,9 @@ function prepareActiveGvh() {
   contact.gvhStatus = "À préparer";
   contact.gvhEnvelope = contact.gvhEnvelope || "Assurance vie";
   contact.gvhAmount = contact.gvhAmount || Math.max(10000, Math.round((contact.apport || 0) * 0.25));
+  contact.cgpStatus = contact.cgpStatus || "À qualifier";
+  contact.cgpMission = contact.cgpMission || "Bilan patrimonial";
+  contact.cgpCompliance = contact.cgpCompliance || "À compléter";
   contact.next = "Planifier rendez-vous Hunb'up après stabilisation locative";
   saveState();
   render();
@@ -2742,9 +2783,11 @@ function renderGvh() {
             <div class="property-body">
               <span class="badge">${displayText(contact.gvhStatus)}</span>
               <h3>${contact.name}</h3>
-              <p>${contact.gvhEnvelope || "Solution à définir"} · ${formatMoney(contact.gvhAmount || 0)}</p>
+              <p>${contact.cgpMission || "Bilan patrimonial"} · ${contact.gvhEnvelope || "Solution à définir"} · ${formatMoney(contact.gvhAmount || 0)}</p>
               <div class="property-meta">
-                <span>${contact.gvhRisk}</span>
+                <span>Profil ${contact.gvhRisk}</span>
+                <span>${contact.cgpCompliance || "Conformité à compléter"}</span>
+                <span>${documentProgress(contact, "gvh")}</span>
                 <span>${contact.email || "Email à renseigner"}</span>
                 <span>${contact.next || "Action à planifier"}</span>
               </div>
