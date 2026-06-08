@@ -1,4 +1,4 @@
-const CACHE_NAME = "laminiere-crm-v19-9";
+const CACHE_NAME = "laminiere-crm-v20-1";
 const APP_SHELL = [
   "./",
   "./index.html",
