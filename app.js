@@ -4,7 +4,7 @@ const STORE_VERSION_KEY = "laminiere-crm-version";
 const CLOUD_CONFIG_KEY = "laminiere-crm-cloud-config";
 const CLOUD_META_KEY = "laminiere-crm-cloud-meta";
 const LOCAL_UPDATED_KEY = "laminiere-crm-local-updated-at";
-const APP_VERSION = "0.19.6";
+const APP_VERSION = "0.19.7";
 const ANNUAL_REVENUE_TARGET_HT = 100800;
 let selectedRevenueYear = String(new Date().getFullYear());
 
@@ -402,7 +402,7 @@ const seedData = {
       email: "jonathan.cohen13@orange.fr",
       phone: "à renseigner",
       source: "Gabriel Valette",
-      type: preset.type || "Client",
+      type: "Client",
       search: "Accompagnement investissement ancien",
       patrimoine: "Client en accompagnement",
       auditStatus: "Payé",
@@ -522,6 +522,7 @@ function loadState() {
   const stored = localStorage.getItem(STORE_KEY);
   if (stored) {
     const parsed = JSON.parse(stored);
+    normalizeStateShape(parsed);
     if (storedVersion !== APP_VERSION) {
       migrateRevenueState(parsed);
       localStorage.setItem(STORE_KEY, JSON.stringify(parsed));
@@ -530,7 +531,17 @@ function loadState() {
     return parsed;
   }
   const data = structuredClone(seedData);
+  normalizeStateShape(data);
   migrateRevenueState(data);
+  return data;
+}
+
+function normalizeStateShape(data) {
+  if (!data || typeof data !== "object") return data;
+  data.properties = Array.isArray(data.properties) ? data.properties : [];
+  data.contacts = Array.isArray(data.contacts) ? data.contacts : [];
+  data.deals = Array.isArray(data.deals) ? data.deals : [];
+  data.tasks = Array.isArray(data.tasks) ? data.tasks : [];
   return data;
 }
 
