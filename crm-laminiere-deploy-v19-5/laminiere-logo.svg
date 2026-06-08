@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 420" role="img" aria-labelledby="title">
+  <title id="title">Logo LaMiniere</title>
+  <rect width="420" height="420" rx="64" fill="#10201d"/>
+  <path d="M72 303 210 86l138 217H72Z" fill="#0c7a69"/>
+  <path d="M122 281 210 143l88 138H122Z" fill="#f8fbf7"/>
+  <path d="M176 281h68l-34-54-34 54Z" fill="#c88b35"/>
+  <path d="M89 332h242v30H89z" fill="#f8fbf7"/>
+</svg>

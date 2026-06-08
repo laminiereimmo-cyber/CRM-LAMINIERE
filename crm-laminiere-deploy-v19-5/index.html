@@ -1,0 +1,764 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CRM LaMinière & Hunb'up</title>
+    <meta name="theme-color" content="#0c7a69" />
+    <meta name="description" content="CRM LaMinière pour suivre l'accompagnement investissement ancien puis la bascule Hunb'up." />
+    <link rel="manifest" href="manifest.json" />
+    <link rel="icon" href="logo-laminiere.png" type="image/png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="Navigation principale">
+        <button class="brand brand-button" data-view="dashboard" type="button" title="Retour au tableau de bord">
+          <img class="brand-logo" src="logo-laminiere.png" alt="LaMinière" />
+          <div>
+            <p>LaMinière x Hunb'up</p>
+            <span>Accompagnement investisseur</span>
+          </div>
+        </button>
+
+        <nav class="nav-list" aria-label="Sections">
+          <button class="nav-item active" data-view="dashboard" type="button">
+            <span data-icon="layout-dashboard"></span>
+            Tableau de bord
+          </button>
+          <button class="nav-item" data-view="properties" type="button">
+            <span data-icon="building-2"></span>
+            Parcours
+          </button>
+          <button class="nav-item" data-view="contacts" type="button">
+            <span data-icon="users-round"></span>
+            Contacts
+          </button>
+          <button class="nav-item" data-view="prospects" type="button">
+            <span data-icon="user-plus"></span>
+            Prospects
+          </button>
+          <button class="nav-item" data-view="analysis" type="button">
+            <span data-icon="search-check"></span>
+            Analyse
+          </button>
+          <button class="nav-item" data-view="pipeline" type="button">
+            <span data-icon="kanban-square"></span>
+            Opérations
+          </button>
+          <button class="nav-item" data-view="gantt" type="button">
+            <span data-icon="gantt-chart"></span>
+            Planning
+          </button>
+          <button class="nav-item" data-view="tasks" type="button">
+            <span data-icon="calendar-check"></span>
+            Relances
+          </button>
+          <button class="nav-item" data-view="gvh" type="button">
+            <span data-icon="landmark"></span>
+            Hunb'up
+          </button>
+        </nav>
+
+        <div class="sidebar-panel">
+          <p class="eyebrow">Priorité du jour</p>
+          <strong id="focusLead">Qualifier le projet client</strong>
+          <span>Audit patrimonial, capacité, cible ancien, puis bascule Hunb'up.</span>
+        </div>
+
+        <a class="sidebar-link" href="https://laminiere.fr/" target="_blank" rel="noopener">
+          <span data-icon="external-link"></span>
+          Site LaMinière
+        </a>
+      </aside>
+
+      <main class="main">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">LaMinière & Hunb'up</p>
+            <h1 id="pageTitle">Tableau de bord</h1>
+          </div>
+          <div class="topbar-actions">
+            <button class="app-status status-button" id="appStatus" data-open-cloud-sync type="button">Sauvegarde locale active</button>
+            <label class="year-filter" title="Année de CA affichée">
+              <span>CA</span>
+              <select id="caYearFilter" aria-label="Année de CA"></select>
+            </label>
+            <label class="search">
+              <span data-icon="search"></span>
+              <input id="globalSearch" type="search" placeholder="Rechercher client, ville, étape, banque, notaire..." />
+            </label>
+            <button class="topbar-button hidden" id="installApp" type="button" title="Installer l'application">
+              <span data-icon="download"></span>
+              Installer
+            </button>
+            <button class="topbar-button" id="exportData" type="button" title="Exporter la base clients vers Excel">
+              <span data-icon="file-down"></span>
+              Export
+            </button>
+            <button class="topbar-button" id="importData" type="button" title="Importer clients Excel ou CSV">
+              <span data-icon="file-up"></span>
+              Import
+            </button>
+            <input class="sr-only" id="importFile" type="file" accept=".xlsx,.xls,.csv,.tsv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv,application/json,.json" />
+            <button class="primary-button" id="quickAdd" type="button">
+              <span data-icon="plus"></span>
+              Ajouter
+            </button>
+          </div>
+        </header>
+
+        <section class="view active" id="dashboard" aria-labelledby="pageTitle">
+          <div class="metric-grid" id="metrics"></div>
+
+          <section class="panel full-panel action-panel">
+            <div class="panel-header">
+              <div>
+                <p class="eyebrow">Centre d'actions</p>
+                <h2>Créer, relancer, analyser, imprimer</h2>
+              </div>
+            </div>
+            <div class="action-grid" id="actionHub"></div>
+          </section>
+
+          <section class="panel full-panel client-control-panel">
+            <div class="panel-header">
+              <div>
+                <p class="eyebrow">Gestion clients</p>
+                <h2>Créer, ouvrir et suivre les dossiers</h2>
+              </div>
+              <div class="panel-actions">
+                <button class="ghost-button" data-view-shortcut="contacts" type="button">Tous les clients</button>
+                <button class="primary-button" id="dashboardAddContact" type="button">
+                  <span data-icon="user-plus"></span>
+                  Nouveau client
+                </button>
+              </div>
+            </div>
+            <div class="client-control-grid" id="clientControlGrid"></div>
+          </section>
+
+          <div class="split-grid">
+            <section class="panel kpi-panel">
+              <div class="panel-header">
+                <div>
+                  <p class="eyebrow">KPI's</p>
+                  <h2>Répartition portefeuille</h2>
+                </div>
+              </div>
+              <div class="kpi-chart-wrap">
+                <div class="pie-chart" id="stagePie" role="img" aria-label="Répartition des dossiers par étape"></div>
+                <div class="pie-legend" id="stageLegend"></div>
+              </div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-header">
+                <div>
+                  <p class="eyebrow">Pipeline</p>
+                  <h2>Opérations accompagnées</h2>
+                </div>
+                <button class="ghost-button" data-view-shortcut="pipeline" type="button">Voir tout</button>
+              </div>
+              <div class="pipeline-mini" id="pipelineMini"></div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-header">
+                <div>
+                  <p class="eyebrow">Relances</p>
+                  <h2>À faire</h2>
+                </div>
+                <button class="ghost-button" data-view-shortcut="tasks" type="button">Planning</button>
+              </div>
+              <div class="task-list" id="dashboardTasks"></div>
+            </section>
+          </div>
+
+          <section class="panel full-panel">
+            <div class="panel-header">
+              <div>
+                <p class="eyebrow">Planning dossiers</p>
+                <h2>Vision Gantt simplifiée</h2>
+              </div>
+              <button class="ghost-button" data-view-shortcut="gantt" type="button">Ouvrir</button>
+            </div>
+            <div class="gantt-preview" id="dashboardGantt"></div>
+          </section>
+
+          <div class="split-grid insight-grid">
+            <section class="panel">
+              <div class="panel-header">
+                <div>
+                  <p class="eyebrow">Business</p>
+                  <h2>CA, audits et potentiel Hunb'up</h2>
+                </div>
+              </div>
+              <div class="business-list" id="businessInsights"></div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-header">
+                <div>
+                  <p class="eyebrow">Blocages</p>
+                  <h2>À débloquer en priorité</h2>
+                </div>
+              </div>
+              <div class="blocker-list" id="blockerList"></div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-header">
+                <div>
+                  <p class="eyebrow">Vue conseiller</p>
+                  <h2>Actions à fort impact</h2>
+                </div>
+              </div>
+              <div class="advisor-list" id="advisorFocus"></div>
+            </section>
+
+            <section class="panel sync-panel">
+              <div class="panel-header">
+                <div>
+                  <p class="eyebrow">Synchronisation</p>
+                  <h2>Cloud CRM</h2>
+                </div>
+                <button class="ghost-button" id="openCloudSync" type="button">
+                  <span data-icon="refresh-cw"></span>
+                  Sync
+                </button>
+              </div>
+              <div class="sync-summary">
+                <strong id="cloudWorkspaceLabel">Mode local</strong>
+                <p>Envoie les modifications du PC vers le cloud, puis récupère-les sur iPhone.</p>
+                <small id="cloudSyncDetails">Cloud non vérifié.</small>
+                <ol class="sync-steps">
+                  <li>Créer/modifier un client.</li>
+                  <li>Vérifier que la sync auto est active.</li>
+                  <li>Sur l'autre appareil, ouvrir l'app ou revenir dessus.</li>
+                  <li>Si doute : Tester cloud puis Récupérer.</li>
+                </ol>
+              </div>
+              <div class="sync-quick-actions">
+                <button class="ghost-button" id="dashboardPullCloud" type="button">Récupérer</button>
+                <button class="primary-button" id="dashboardPushCloud" type="button">Envoyer</button>
+              </div>
+            </section>
+          </div>
+
+          <section class="panel full-panel">
+            <div class="panel-header">
+              <div>
+                <p class="eyebrow">Parcours</p>
+                <h2>De l'ancien vers Hunb'up</h2>
+              </div>
+              <button class="ghost-button" data-view-shortcut="properties" type="button">Catalogue</button>
+            </div>
+            <div class="property-strip" id="featuredProperties"></div>
+          </section>
+        </section>
+
+        <section class="view" id="properties" aria-label="Parcours client">
+          <div class="section-toolbar">
+            <div class="segmented" role="tablist" aria-label="Filtres parcours">
+              <button class="segment active" data-property-filter="all" type="button">Tous</button>
+              <button class="segment" data-property-filter="LaMinière" type="button">LaMinière</button>
+              <button class="segment" data-property-filter="Hunb'up" type="button">Hunb'up</button>
+              <button class="segment" data-property-filter="Formation" type="button">Formation</button>
+              <button class="segment" data-property-filter="Suivi" type="button">Suivi</button>
+            </div>
+            <button class="primary-button" id="addProperty" type="button">
+              <span data-icon="home"></span>
+              Nouveau parcours
+            </button>
+          </div>
+          <div class="property-grid" id="propertyGrid"></div>
+        </section>
+
+        <section class="view" id="contacts" aria-label="Contacts">
+          <div class="section-toolbar">
+            <div>
+              <p class="eyebrow">Carnet commercial</p>
+              <h2>Base clients et dossiers</h2>
+            </div>
+            <div class="toolbar-actions">
+              <label class="compact-check">
+                <input id="showArchivedContacts" type="checkbox" />
+                <span>Archivés</span>
+              </label>
+              <button class="primary-button" id="addContact" type="button">
+                <span data-icon="user-plus"></span>
+                Nouveau contact
+              </button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Nom</th>
+                  <th>Client</th>
+                  <th>Projet</th>
+                  <th>Audit</th>
+                  <th>Mandat ancien</th>
+                  <th>Hunb'up</th>
+                  <th>Prochaine action</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="contactsTable"></tbody>
+            </table>
+          </div>
+        </section>
+
+
+        <section class="view" id="prospects" aria-label="Prospects">
+          <div class="section-toolbar">
+            <div>
+              <p class="eyebrow">Prospection</p>
+              <h2>Prospects à relancer</h2>
+            </div>
+            <button class="primary-button" id="addProspect" type="button">
+              <span data-icon="user-plus"></span>
+              Nouveau prospect
+            </button>
+          </div>
+          <div class="prospect-grid" id="prospectGrid"></div>
+        </section>
+        <section class="view" id="analysis" aria-label="Analyse adresse">
+          <div class="section-toolbar">
+            <div>
+              <p class="eyebrow">Pré-analyse</p>
+              <h2>Adresse, marché, tension locative, rentabilité</h2>
+            </div>
+            <button class="primary-button" id="runAnalysis" type="button">
+              <span data-icon="search-check"></span>
+              Analyser
+            </button>
+            <button class="ghost-button" id="exportAnalysisBank" type="button">
+              <span data-icon="file-down"></span>
+              Dossier bancaire
+            </button>
+            <button class="ghost-button" id="addAnalysisProject" type="button">
+              <span data-icon="plus"></span>
+              Ajouter au mandat
+            </button>
+            <button class="ghost-button" id="printAnalysisBank" type="button">
+              <span data-icon="printer"></span>
+              Imprimer
+            </button>
+          </div>
+          <section class="panel analysis-panel">
+            <div class="analysis-form">
+              <label class="field full">
+                <span>Adresse du bien</span>
+                <input id="analysisAddress" type="text" placeholder="12 rue de la République, 31000 Toulouse" autocomplète="off" list="addressSuggestions" />
+                <datalist id="addressSuggestions"></datalist>
+              </label>
+              <label class="field">
+                <span>Client rattaché</span>
+                <select id="analysisClient"></select>
+              </label>
+              <label class="field">
+                <span>Nouveau client / dossier</span>
+                <input id="analysisClientName" type="text" placeholder="Nom du ou des emprunteurs" />
+              </label>
+              <label class="field">
+                <span>Email emprunteur</span>
+                <input id="analysisClientEmail" type="email" placeholder="email@exemple.fr" />
+              </label>
+              <label class="field">
+                <span>Téléphone emprunteur</span>
+                <input id="analysisClientPhone" type="tel" placeholder="06..." />
+              </label>
+              <label class="field">
+                <span>Action client</span>
+                <button class="ghost-button field-button" id="createAnalysisClient" type="button">Créer le client</button>
+              </label>
+              <label class="field">
+                <span>Complément d'adresse</span>
+                <input id="analysisAddressExtra" type="text" placeholder="Bâtiment, étage, lot..." />
+              </label>
+              <label class="field">
+                <span>Pays</span>
+                <input id="analysisCountry" type="text" value="France" />
+              </label>
+              <label class="field">
+                <span>Cadastre</span>
+                <input id="analysisCadastre" type="text" placeholder="Ex : 000BL0329" />
+              </label>
+              <label class="field">
+                <span>Type de projet</span>
+                <select id="analysisProjectType">
+                  <option>Investissement locatif ancien</option>
+                  <option>Immeuble de rapport</option>
+                  <option>Opération avec travaux</option>
+                  <option>Division / creation de lots</option>
+                  <option>Meublé / LMNP</option>
+                </select>
+              </label>
+              <label class="field">
+                <span>Photo principale</span>
+                <input id="analysisPhoto" type="file" accept="image/png,image/jpeg" />
+              </label>
+              <label class="field full">
+                <span>Description du projet</span>
+                <textarea id="analysisDescription" maxlength="420" placeholder="Synthèse du bien, points forts, travaux, cible locative, vigilance banque..."></textarea>
+                <small><span id="analysisDescriptionCount">0</span>/420</small>
+              </label>
+              <label class="field">
+                <span>Prix FAI</span>
+                <input id="analysisPrice" type="number" value="220000" />
+              </label>
+              <label class="field">
+                <span>Surface m2</span>
+                <input id="analysisArea" type="number" value="120" />
+              </label>
+              <label class="field">
+                <span>Loyer mensuel estimé</span>
+                <input id="analysisRent" type="number" value="1800" />
+              </label>
+              <label class="field">
+                <span>Travaux estimés</span>
+                <input id="analysisWorks" type="number" value="30000" />
+              </label>
+              <div class="works-estimator full">
+                <div class="linked-fee-heading">
+                  <span>Chiffrage travaux par lots</span>
+                  <small>Remplis les lots connus : le total peut alimenter le budget travaux.</small>
+                </div>
+                <label class="field">
+                  <span>Structure / toiture</span>
+                  <input id="worksStructure" type="number" value="0" />
+                </label>
+                <label class="field">
+                  <span>Électricité / plomberie</span>
+                  <input id="worksTechnical" type="number" value="0" />
+                </label>
+                <label class="field">
+                  <span>Second œuvre</span>
+                  <input id="worksSecondWork" type="number" value="0" />
+                </label>
+                <label class="field">
+                  <span>Cuisines / salles d'eau</span>
+                  <input id="worksWetRooms" type="number" value="0" />
+                </label>
+                <label class="field">
+                  <span>Imprévus</span>
+                  <input id="worksContingency" type="number" value="0" />
+                </label>
+                <div class="works-total">
+                  <span>Total lots travaux</span>
+                  <strong id="worksTotalLabel">0 EUR</strong>
+                  <button class="ghost-button" id="applyWorksTotal" type="button">Utiliser ce total</button>
+                </div>
+              </div>
+              <label class="field">
+                <span>Frais d'acquisition ancien auto</span>
+                <input id="analysisAcquisitionFees" type="number" value="0" readonly />
+                <small>Calculé depuis le prix FAI.</small>
+              </label>
+              <label class="field">
+                <span>Profil droits de mutation</span>
+                <select id="analysisDmtoMode">
+                  <option value="firstBuyer" selected>Sans RP / non majoré</option>
+                  <option value="standard">Taux standard majoré</option>
+                </select>
+              </label>
+              <label class="field">
+                <span>Frais bancaires</span>
+                <input id="analysisBankFees" type="number" value="700" />
+              </label>
+              <label class="field">
+                <span>Courtier</span>
+                <input id="analysisBrokerFees" type="number" value="3000" />
+              </label>
+              <div class="linked-fee-group full">
+                <div class="linked-fee-heading">
+                  <span>Honoraires acquisition</span>
+                  <small>Le pourcentage pilote le montant. Le montant reste modifiable.</small>
+                </div>
+                <label class="field rate-field">
+                  <span>% FAI</span>
+                  <input id="analysisFeeOnPriceRate" type="number" value="7" step="0.1" />
+                </label>
+                <label class="field amount-field">
+                  <span>Montant honoraires FAI</span>
+                  <input id="analysisFeeOnPrice" type="number" value="0" />
+                </label>
+              </div>
+              <div class="linked-fee-group full">
+                <div class="linked-fee-heading">
+                  <span>Honoraires travaux</span>
+                  <small>Le pourcentage pilote le montant. Le montant reste modifiable.</small>
+                </div>
+                <label class="field rate-field">
+                  <span>% travaux</span>
+                  <input id="analysisFeeOnWorksRate" type="number" value="7" step="0.1" />
+                </label>
+                <label class="field amount-field">
+                  <span>Montant honoraires travaux</span>
+                  <input id="analysisFeeOnWorks" type="number" value="0" />
+                </label>
+              </div>
+              <label class="field">
+                <span>Meubles</span>
+                <input id="analysisFurniture" type="number" value="0" />
+              </label>
+              <label class="field">
+                <span>Apport personnel</span>
+                <input id="analysisContribution" type="number" value="0" />
+                <small>Si 0 : 10% du coût global projet.</small>
+              </label>
+              <label class="field">
+                <span>Taux crédit %</span>
+                <input id="analysisRate" type="number" value="3.8" step="0.05" />
+              </label>
+              <label class="field">
+                <span>Assurance crédit / mois</span>
+                <input id="analysisLoanInsurance" type="number" value="0" />
+              </label>
+              <label class="field">
+                <span>Durée crédit années</span>
+                <input id="analysisDuration" type="number" value="25" />
+              </label>
+              <label class="field">
+                <span>Charges mensuelles</span>
+                <input id="analysisMonthlyCosts" type="number" value="120" />
+              </label>
+              <label class="field">
+                <span>Taxe foncière annuelle</span>
+                <input id="analysisPropertyTax" type="number" value="1800" />
+              </label>
+              <label class="field">
+                <span>Type d'actif</span>
+                <select id="analysisAsset">
+                  <option>Petit immeuble de rapport</option>
+                  <option>Appartement ancien</option>
+                  <option>Colocation</option>
+                  <option>Division / creation de lots</option>
+                  <option>Opération avec travaux</option>
+                </select>
+              </label>
+              <input id="analysisPopulation" type="hidden" value="0" />
+              <input id="analysisMedianIncome" type="hidden" value="0" />
+              <input id="analysisMarketPriceSqm" type="hidden" value="0" />
+              <input id="analysisTenantShare" type="hidden" value="0" />
+              <input id="analysisRentalPressure" type="hidden" value="0" />
+              <input id="analysisPostcode" type="hidden" />
+              <input id="analysisLat" type="hidden" />
+              <input id="analysisLon" type="hidden" />
+              <input id="analysisCity" type="hidden" />
+            </div>
+          </section>
+          <div class="analysis-grid" id="analysisResults"></div>
+        </section>
+
+        <section class="view" id="pipeline" aria-label="Opérations accompagnées">
+          <div class="kanban" id="kanban"></div>
+        </section>
+
+        <section class="view" id="gantt" aria-label="Planning dossiers">
+          <div class="section-toolbar">
+            <div>
+              <p class="eyebrow">Planning opérationnel</p>
+              <h2>Avancement étape par étape</h2>
+            </div>
+            <button class="primary-button" id="addGanttTask" type="button">
+              <span data-icon="calendar-plus"></span>
+              Nouvelle relance
+            </button>
+          </div>
+          <section class="panel">
+            <div class="gantt-board" id="ganttBoard"></div>
+          </section>
+        </section>
+
+        <section class="view" id="tasks" aria-label="Relances">
+          <div class="section-toolbar">
+            <div>
+              <p class="eyebrow">Rythme commercial</p>
+              <h2>Relances, rendez-vous et livrables</h2>
+            </div>
+            <button class="primary-button" id="addTask" type="button">
+              <span data-icon="calendar-plus"></span>
+              Nouvelle relance
+            </button>
+          </div>
+          <div class="task-board" id="taskBoard"></div>
+        </section>
+
+        <section class="view" id="gvh" aria-label="Socle Hunb'up">
+          <div class="section-toolbar">
+            <div>
+              <p class="eyebrow">Placement financier</p>
+              <h2>Clients à basculer ou suivre avec Hunb'up</h2>
+            </div>
+          </div>
+          <div class="gvh-grid" id="gvhGrid"></div>
+        </section>
+      </main>
+    </div>
+
+    <dialog class="modal" id="entryModal">
+      <form class="modal-card" id="entryForm">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow" id="modalEyebrow">Création</p>
+            <h2 id="modalTitle">Ajouter</h2>
+          </div>
+          <button class="icon-button" value="cancel" formnovalidate type="submit" title="Fermer">
+            <span data-icon="x"></span>
+          </button>
+        </div>
+        <div class="form-grid" id="modalFields"></div>
+        <div class="modal-actions">
+          <button class="ghost-button" value="cancel" formnovalidate type="submit">Annuler</button>
+          <button class="primary-button" value="default" id="saveEntry" type="submit">Enregistrer</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="modal" id="cloudModal">
+      <form class="modal-card" id="cloudForm">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">Synchronisation</p>
+            <h2>Cloud Supabase</h2>
+          </div>
+          <button class="icon-button" value="cancel" formnovalidate type="submit" title="Fermer">
+            <span data-icon="x"></span>
+          </button>
+        </div>
+        <div class="form-grid">
+          <label class="field full">
+            <span>URL Supabase</span>
+            <input id="cloudUrl" name="cloudUrl" type="url" placeholder="https://xxxxx.supabase.co" />
+          </label>
+          <label class="field full">
+            <span>Clé publique anon / publishable</span>
+            <input id="cloudKey" name="cloudKey" type="password" placeholder="sb_publishable_... ou anon key" />
+          </label>
+          <label class="field full">
+            <span>Identifiant workspace</span>
+            <input id="cloudWorkspace" name="cloudWorkspace" type="text" placeholder="crm-laminiere-gvh" />
+            <small>Utilise le même identifiant sur PC et iPhone.</small>
+          </label>
+          <label class="field checkbox-field full">
+            <input id="cloudAutoSync" name="cloudAutoSync" type="checkbox" />
+            <span>Synchronisation automatique</span>
+            <small>Envoie les modifications quelques secondes après sauvegarde et récupère le cloud au demarrage si la version cloud est plus recente.</small>
+          </label>
+        </div>
+        <div class="modal-actions split-actions">
+          <button class="ghost-button" id="inspectCloud" type="button">Tester cloud</button>
+          <button class="ghost-button" id="pullCloud" type="button">Récupérer du cloud</button>
+          <button class="ghost-button" id="pushCloud" type="button">Envoyer vers cloud</button>
+          <button class="primary-button" id="saveCloudConfig" type="submit">Enregistrer</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="modal" id="revenueForecastModal">
+      <form class="modal-card forecast-modal-card" method="dialog">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">Objectif annuel</p>
+            <h2 id="revenueForecastTitle">CA prévisionnel</h2>
+          </div>
+          <button class="icon-button" value="cancel" type="submit" title="Fermer">
+            <span data-icon="x"></span>
+          </button>
+        </div>
+        <div class="forecast-summary" id="revenueForecastSummary"></div>
+        <div class="forecast-list" id="revenueForecastRows"></div>
+        <div class="modal-actions">
+          <button class="ghost-button" value="cancel" type="submit">Fermer</button>
+          <button class="primary-button" id="openPipelineFromForecast" type="button">Voir le pipeline</button>
+        </div>
+      </form>
+    </dialog>
+
+    <aside class="client-drawer" id="clientDrawer" aria-label="Fiche client" aria-hidden="true">
+      <div class="drawer-backdrop" id="drawerBackdrop"></div>
+      <section class="drawer-panel">
+        <div class="drawer-header">
+          <div>
+            <p class="eyebrow" id="drawerEyebrow">Fiche client</p>
+            <h2 id="drawerName">Client</h2>
+          </div>
+          <button class="icon-button" id="closeDrawer" type="button" title="Fermer">
+            <span data-icon="x"></span>
+          </button>
+        </div>
+
+        <div class="drawer-tabs" role="tablist" aria-label="Sections client">
+          <button class="drawer-tab active" data-drawer-tab="summary" type="button">Synthèse</button>
+          <button class="drawer-tab" data-drawer-tab="timeline" type="button">Timeline</button>
+          <button class="drawer-tab" data-drawer-tab="audit" type="button">Audit 3k</button>
+          <button class="drawer-tab" data-drawer-tab="mandate" type="button">Mandat</button>
+          <button class="drawer-tab" data-drawer-tab="gvh" type="button">Hunb'up</button>
+          <button class="drawer-tab" data-drawer-tab="emails" type="button">Emails</button>
+          <button class="drawer-tab" data-drawer-tab="notes" type="button">Notes</button>
+        </div>
+
+        <form class="client-form" id="clientForm">
+          <div class="drawer-section active" data-section="summary">
+            <div class="drawer-grid" id="summaryFields"></div>
+          </div>
+          <div class="drawer-section" data-section="timeline">
+            <div class="timeline-board" id="clientTimeline"></div>
+          </div>
+          <div class="drawer-section" data-section="audit">
+            <div class="drawer-grid" id="auditFields"></div>
+            <div class="doc-zone" id="auditDocs"></div>
+          </div>
+          <div class="drawer-section" data-section="mandate">
+            <div class="drawer-grid" id="mandateFields"></div>
+            <div class="mandate-projects" id="mandateProjects"></div>
+            <div class="doc-zone" id="bankDocs"></div>
+            <div class="doc-zone" id="notaryDocs"></div>
+            <div class="doc-zone" id="worksDocs"></div>
+          </div>
+          <div class="drawer-section" data-section="gvh">
+            <div class="drawer-grid" id="gvhFields"></div>
+            <div class="doc-zone" id="gvhDocs"></div>
+          </div>
+          <div class="drawer-section" data-section="emails">
+            <div class="email-template-list" id="emailTemplates"></div>
+          </div>
+          <div class="drawer-section" data-section="notes">
+            <label class="field full">
+              <span>Notes de suivi</span>
+              <textarea id="clientNotes" name="notes" rows="9" placeholder="Compte-rendu, points bloquants, decisions, prochaines etapes..."></textarea>
+            </label>
+          </div>
+
+          <div class="drawer-actions">
+            <button class="ghost-button" id="markMandate" type="button">Passer en mandat</button>
+            <button class="ghost-button" id="copyToGvh" type="button">Préparer Hunb'up</button>
+            <button class="ghost-button" id="exportClient" type="button">Export Word</button>
+            <button class="ghost-button" id="exportClientExcel" type="button">Export Excel</button>
+            <button class="ghost-button" id="archiveContact" type="button">Archiver</button>
+            <button class="ghost-button danger-action" id="deleteContact" type="button">Supprimer</button>
+            <button class="primary-button" type="submit">Enregistrer</button>
+          </div>
+        </form>
+      </section>
+    </aside>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
+
+
