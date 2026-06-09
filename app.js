@@ -4,7 +4,7 @@ const STORE_VERSION_KEY = "laminiere-crm-version";
 const CLOUD_CONFIG_KEY = "laminiere-crm-cloud-config";
 const CLOUD_META_KEY = "laminiere-crm-cloud-meta";
 const LOCAL_UPDATED_KEY = "laminiere-crm-local-updated-at";
-const APP_VERSION = "0.20.8";
+const APP_VERSION = "0.20.9";
 const REVENUE_TARGETS_HT = {
   2026: 100800,
   2027: null
@@ -779,10 +779,13 @@ function migrateRevenueState(data) {
     });
   });
 
+  attachLegacyRevenueDeals(data);
+
   const demoDealIds = new Set(["d1", "d2", "d3", "d4", "d5"]);
   data.deals.forEach((deal) => {
     const linkedContact = data.contacts.find((contact) => contact.id === deal.contactId);
-    const isRevenueContact = linkedContact && revenueNames.has(normalizeText(linkedContact.name));
+    const canonicalRevenueName = canonicalRevenueClientName(`${linkedContact?.name || ""} ${deal.title || ""} ${deal.contact || ""}`);
+    const isRevenueContact = linkedContact && (revenueNames.has(normalizeText(linkedContact.name)) || Boolean(canonicalRevenueName));
     if (!deal.projectId && !deal.auditDeal) {
       deal.archivedAt = deal.archivedAt || new Date().toISOString();
       deal.revenueYear = deal.revenueYear || "2025";
@@ -794,6 +797,39 @@ function migrateRevenueState(data) {
   });
   archiveDuplicateGeneratedDeals(data);
   return data;
+}
+
+function attachLegacyRevenueDeals(data) {
+  if (!data || !Array.isArray(data.contacts) || !Array.isArray(data.deals)) return;
+  const canonicalContacts = new Map();
+  data.contacts.forEach((contact) => {
+    const canonicalName = canonicalRevenueClientName(contact.name);
+    if (!canonicalName) return;
+    if (!canonicalContacts.has(canonicalName) || (!isContactArchived(contact) && isContactArchived(canonicalContacts.get(canonicalName)))) {
+      canonicalContacts.set(canonicalName, contact);
+    }
+  });
+
+  data.contacts.forEach((contact) => {
+    const canonicalName = canonicalRevenueClientName(contact.name);
+    if (!canonicalName) return;
+    const keeper = canonicalContacts.get(canonicalName);
+    if (keeper && keeper !== contact) contact.archivedAt = contact.archivedAt || new Date().toISOString();
+  });
+
+  data.deals.forEach((deal) => {
+    const canonicalName = canonicalRevenueClientName(`${deal.title || ""} ${deal.contact || ""}`);
+    if (!canonicalName) return;
+    const contact = canonicalContacts.get(canonicalName);
+    if (!contact) return;
+    deal.contactId = contact.id;
+    if (canonicalName === "Pauline GLAIZE & Adrien CARDONNA") {
+      deal.title = deal.auditDeal ? `${canonicalName} · Audit 3k` : deal.title.replace(/^Pauline et Adrien/i, canonicalName);
+    }
+    if (canonicalName === "Camille (MPI) et Dorian") {
+      deal.title = deal.auditDeal ? `${canonicalName} · Audit 3k` : deal.title.replace(/^Camille.*?Dorian/i, canonicalName);
+    }
+  });
 }
 
 function normalizeLegacyTechnicalFields(data) {
@@ -1535,7 +1571,8 @@ function revenueTargetForYear(year = selectedRevenueYear) {
 }
 
 function clientRevenueKey(row) {
-  return row.contactId || normalizeText(row.client || row.title || "Client") || "client";
+  const canonicalName = canonicalRevenueClientName(`${row.client || ""} ${row.title || ""} ${row.detail || ""}`);
+  return row.contactId || normalizeText(canonicalName || row.client || row.title || "Client") || "client";
 }
 
 function revenueForecastRows() {
@@ -1544,14 +1581,15 @@ function revenueForecastRows() {
     .sort((a, b) => Number(b.value || 0) - Number(a.value || 0))
     .map((deal) => {
       const contact = findLinkedContactForDeal(deal);
+      const canonicalName = canonicalRevenueClientName(`${deal.title || ""} ${deal.contact || ""} ${contact?.name || ""}`);
       const kind = deal.revenueCategory || (deal.auditDeal ? "Audit" : deal.countsAsOperation === false ? "Autre revenu" : "Projet");
       const dueStatus = normalizeText(deal.due);
       const realized = deal.auditDeal || ["Acquisition", "Travaux", "Ameublement", "Location", "Bascule Hunb'up"].includes(deal.stage) || dueStatus.includes("paye") || dueStatus.includes("realise") || dueStatus.includes("encaisse") || dueStatus.includes("regle");
       return {
         id: deal.id,
-        contactId: deal.contactId || contact?.id || "",
+        contactId: contact?.id || deal.contactId || "",
         title: deal.title || contact?.name || "Dossier",
-        client: contact?.name || deal.title || "Client",
+        client: contact?.name || canonicalName || deal.title || "Client",
         detail: deal.contact || deal.due || deal.stage || "",
         kind,
         status: realized ? "Réalisé / encaissé" : "En cours",
@@ -2206,7 +2244,14 @@ function renderGantt() {
 }
 
 function findLinkedContactForDeal(deal) {
-  if (deal.contactId) return state.contacts.find((contact) => contact.id === deal.contactId);
+  const linkedById = deal.contactId ? state.contacts.find((contact) => contact.id === deal.contactId) : null;
+  const canonicalName = canonicalRevenueClientName(`${linkedById?.name || ""} ${deal.title || ""} ${deal.contact || ""}`);
+  if (canonicalName) {
+    const canonicalContact = state.contacts.find((contact) => !isContactArchived(contact) && canonicalRevenueClientName(contact.name) === canonicalName) ||
+      state.contacts.find((contact) => canonicalRevenueClientName(contact.name) === canonicalName);
+    if (canonicalContact) return canonicalContact;
+  }
+  if (linkedById) return linkedById;
   const normalizedTitle = normalizeText(deal.title);
   return state.contacts.find((contact) => {
     const normalizedName = normalizeText(contact.name);
@@ -2221,6 +2266,16 @@ function normalizeText(value) {
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
+}
+
+function canonicalRevenueClientName(value) {
+  const normalized = normalizeText(value);
+  if (!normalized) return "";
+  const hasPaulineAdrien = normalized.includes("pauline et adrien") || (normalized.includes("pauline") && normalized.includes("adrien")) || normalized.includes("glaize") || normalized.includes("cardonna");
+  if (hasPaulineAdrien) return "Pauline GLAIZE & Adrien CARDONNA";
+  const hasCamilleDorian = (normalized.includes("camille") && normalized.includes("dorian")) || normalized.includes("cavalier") || normalized.includes("declerck");
+  if (hasCamilleDorian) return "Camille (MPI) et Dorian";
+  return "";
 }
 
 function getStages() {
