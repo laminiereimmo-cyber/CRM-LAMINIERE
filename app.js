@@ -4,7 +4,7 @@ const STORE_VERSION_KEY = "laminiere-crm-version";
 const CLOUD_CONFIG_KEY = "laminiere-crm-cloud-config";
 const CLOUD_META_KEY = "laminiere-crm-cloud-meta";
 const LOCAL_UPDATED_KEY = "laminiere-crm-local-updated-at";
-const APP_VERSION = "0.20.9";
+const APP_VERSION = "0.20.10";
 const REVENUE_TARGETS_HT = {
   2026: 100800,
   2027: null
@@ -3355,6 +3355,8 @@ async function pushCloudState(options = {}) {
   if (!validateCloudConfig(config)) return;
   saveCloudConfig(config);
   renderCloudSummary();
+  normalizeStateShape(state);
+  migrateRevenueState(state);
   const syncedAt = new Date().toISOString();
   const payload = {
     id: config.workspace,
@@ -3378,6 +3380,8 @@ async function pushCloudState(options = {}) {
 async function applyCloudRow(row, options = {}) {
   isApplyingCloudState = true;
   state = row.data;
+  normalizeStateShape(state);
+  migrateRevenueState(state);
   localStorage.setItem(STORE_KEY, JSON.stringify(state));
   localStorage.setItem(STORE_VERSION_KEY, APP_VERSION);
   localStorage.setItem(LOCAL_UPDATED_KEY, row.updated_at || new Date().toISOString());
