@@ -4,7 +4,7 @@ const STORE_VERSION_KEY = "laminiere-crm-version";
 const CLOUD_CONFIG_KEY = "laminiere-crm-cloud-config";
 const CLOUD_META_KEY = "laminiere-crm-cloud-meta";
 const LOCAL_UPDATED_KEY = "laminiere-crm-local-updated-at";
-const APP_VERSION = "0.20.6";
+const APP_VERSION = "0.20.7";
 const REVENUE_TARGETS_HT = {
   2026: 100800,
   2027: null
@@ -2550,27 +2550,61 @@ function renderCoachingProjects(contact) {
         <h3>Analyse de biens / coaching ponctuel</h3>
         <span class="client-mini">Rubrique séparée des prospects, audits et mandats.</span>
       </div>
-      <strong>${formatExactMoney(total)} HT</strong>
+      <strong id="coachingProjectsTotal">${formatExactMoney(total)} HT</strong>
     </div>
     <div class="project-list">
-      ${projects
-        .map(
-          (project) => `
-            <article class="project-row">
-              <div class="project-row-head">
-                <strong>${htmlEscape(project.city || "Coaching")}</strong>
-                <span class="score-pill">${formatExactMoney(projectTotalHt(project))}</span>
-              </div>
-              <div class="property-meta">
-                <span>${htmlEscape(project.status || "Statut à préciser")}</span>
-                <span>${htmlEscape(project.revenueYear || selectedRevenueYear)}</span>
-                <span>${htmlEscape(project.comment || "Coaching immobilier ponctuel.")}</span>
-              </div>
-            </article>
-          `
-        )
-        .join("") || emptyState("Aucun coaching rattaché à cette fiche.")}
+      ${projects.map((project) => coachingProjectTemplate(project)).join("") || emptyState("Aucun coaching rattaché à cette fiche.")}
     </div>
+    <button class="ghost-button" id="addCoachingProject" type="button">Ajouter un coaching</button>
+  `;
+}
+
+function coachingProjectTemplate(project) {
+  ensureProjectDefaults(project);
+  const fields = [
+    ["city", "Mission / ville", "text"],
+    ["revenueYear", "Année CA", "number"],
+    ["mandateFeeTtc", "Prix TTC vu client", "number"],
+    ["mandateFeeHt", "Prix HT CA", "number"],
+    ["status", "Statut", "select", ["En cours", "Réalisé / encaissé", "Facturé", "À facturer"]],
+    ["comment", "Commentaire", "text"]
+  ];
+  return `
+    <article class="project-row" data-project-id="${project.id}">
+      <div class="project-row-head">
+        <strong>${htmlEscape(project.city || "Coaching")}</strong>
+        <span class="score-pill" data-project-total>${formatExactMoney(projectTotalHt(project))}</span>
+      </div>
+      <input data-project-field="source" type="hidden" value="Coaching" />
+      <input data-project-field="revenueCategory" type="hidden" value="Coaching" />
+      <input data-project-field="missionType" type="hidden" value="Coaching immobilier" />
+      <input data-project-field="acquisitionPrice" type="hidden" value="0" />
+      <input data-project-field="mandateRate" type="hidden" value="0" />
+      <input data-project-field="works" type="hidden" value="0" />
+      <input data-project-field="worksRate" type="hidden" value="0" />
+      <input data-project-field="worksFeeTtc" type="hidden" value="0" />
+      <input data-project-field="worksFeeHt" type="hidden" value="0" />
+      <input data-project-field="auditFeeTtc" type="hidden" value="0" />
+      <input data-project-field="auditFeeHt" type="hidden" value="0" />
+      <input data-project-field="furniture" type="hidden" value="0" />
+      <div class="project-grid">
+        ${fields
+          .map(
+            ([name, label, type, options = []]) => `
+              <label class="field">
+                <span>${label}</span>
+                ${
+                  type === "select"
+                    ? `<select data-project-field="${name}">${options.map((option) => `<option value="${option}" ${String(project[name] || "") === option ? "selected" : ""}>${option}</option>`).join("")}</select>`
+                    : `<input data-project-field="${name}" type="${type}" value="${String(project[name] ?? "").replaceAll('"', "&quot;")}" />`
+                }
+              </label>
+            `
+          )
+          .join("")}
+      </div>
+      <button class="ghost-button table-action" data-remove-project="${project.id}" type="button">Sortir le coaching</button>
+    </article>
   `;
 }
 
@@ -2849,15 +2883,19 @@ function recalculateProjectRow(row, changedKey = "") {
 function updateProjectTotals() {
   const rows = Array.from(document.querySelectorAll("[data-project-id]"));
   let total = Number(document.querySelector("#mandateProjects")?.dataset.auditHt || 0);
+  let coachingTotal = 0;
   rows.forEach((row) => {
     const project = readProjectRow(row);
     const rowTotal = projectTotalHt(project);
-    if (projectRevenueYear(project) === String(selectedRevenueYear)) total += rowTotal;
+    if (project.revenueCategory !== "Coaching" && projectRevenueYear(project) === String(selectedRevenueYear)) total += rowTotal;
+    if (project.revenueCategory === "Coaching" && projectRevenueYear(project) === String(selectedRevenueYear)) coachingTotal += rowTotal;
     const pill = row.querySelector("[data-project-total]");
     if (pill) pill.textContent = formatExactMoney(rowTotal);
   });
   const totalTarget = document.querySelector("#mandateProjectsTotal");
   if (totalTarget) totalTarget.textContent = `${formatExactMoney(total)} HT`;
+  const coachingTarget = document.querySelector("#coachingProjectsTotal");
+  if (coachingTarget) coachingTarget.textContent = `${formatExactMoney(coachingTotal)} HT`;
 }
 
 function syncContactProjectDeals(contact) {
@@ -4783,6 +4821,32 @@ document.querySelector("#clientForm").addEventListener("click", (event) => {
   const addProjectButton = event.target.closest("#addMandateProject");
   if (addProjectButton) {
     addProjectToActiveContact();
+    return;
+  }
+  const addCoachingButton = event.target.closest("#addCoachingProject");
+  if (addCoachingButton) {
+    addProjectToActiveContact({
+      source: "Coaching",
+      city: "Coaching immobilier",
+      revenueYear: selectedRevenueYear,
+      revenueCategory: "Coaching",
+      missionType: "Coaching immobilier",
+      acquisitionPrice: 0,
+      mandateRate: 0,
+      mandateFeeTtc: 0,
+      mandateFeeHt: 0,
+      works: 0,
+      worksRate: 0,
+      worksFeeTtc: 0,
+      worksFeeHt: 0,
+      auditFeeTtc: 0,
+      auditFeeHt: 0,
+      furniture: 0,
+      status: "En cours",
+      countsAsOperation: false,
+      comment: "Prix à renseigner."
+    });
+    setDrawerTab("coaching");
     return;
   }
   const removeProjectButton = event.target.closest("[data-remove-project]");
