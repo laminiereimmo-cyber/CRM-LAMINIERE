@@ -4,7 +4,7 @@ const STORE_VERSION_KEY = "laminiere-crm-version";
 const CLOUD_CONFIG_KEY = "laminiere-crm-cloud-config";
 const CLOUD_META_KEY = "laminiere-crm-cloud-meta";
 const LOCAL_UPDATED_KEY = "laminiere-crm-local-updated-at";
-const APP_VERSION = "0.20.12";
+const APP_VERSION = "0.20.14";
 const REVENUE_TARGETS_HT = {
   2026: 100800,
   2027: null
@@ -780,6 +780,7 @@ function migrateRevenueState(data) {
   });
 
   attachLegacyRevenueDeals(data);
+  archiveLegacyRevenueArtifacts(data);
 
   const demoDealIds = new Set(["d1", "d2", "d3", "d4", "d5"]);
   data.deals.forEach((deal) => {
@@ -832,6 +833,36 @@ function attachLegacyRevenueDeals(data) {
   });
 }
 
+function archiveLegacyRevenueArtifacts(data) {
+  if (!data || !Array.isArray(data.contacts) || !Array.isArray(data.deals)) return;
+  const now = new Date().toISOString();
+  const camilleContact = data.contacts.find((contact) => canonicalRevenueClientName(contact.name) === "Camille (MPI) et Dorian" && !isContactArchived(contact)) ||
+    data.contacts.find((contact) => canonicalRevenueClientName(contact.name) === "Camille (MPI) et Dorian");
+  if (camilleContact) {
+    ensureContactDefaults(camilleContact);
+    (camilleContact.projects || []).forEach((project) => {
+      ensureProjectDefaults(project);
+      const isOldCamilleMandate = Number(project.acquisitionPrice || 0) === 200000 || Math.round(Number(project.mandateFeeHt || 0)) === 9167;
+      if (isOldCamilleMandate) project.archivedAt = project.archivedAt || now;
+    });
+  }
+
+  const seenCanonicalAudits = new Set();
+  data.deals.forEach((deal) => {
+    const linkedContact = data.contacts.find((contact) => contact.id === deal.contactId);
+    const canonicalName = canonicalRevenueClientName(`${linkedContact?.name || ""} ${deal.title || ""} ${deal.contact || ""}`);
+    if (canonicalName === "Camille (MPI) et Dorian" && !deal.auditDeal) {
+      const legacyText = normalizeText(`${deal.title || ""} ${deal.contact || ""}`);
+      const isOldCamilleMandate = legacyText.includes("200 000") || legacyText.includes("200000") || Math.round(Number(deal.value || 0)) === 9750;
+      if (isOldCamilleMandate) deal.archivedAt = deal.archivedAt || now;
+    }
+    if (!deal.auditDeal || !canonicalName) return;
+    const key = `${canonicalName}:${deal.revenueYear || ""}:${Math.round(Number(deal.value || 0) * 100) / 100}`;
+    if (seenCanonicalAudits.has(key)) deal.archivedAt = deal.archivedAt || now;
+    else seenCanonicalAudits.add(key);
+  });
+}
+
 function normalizeLegacyTechnicalFields(data) {
   data.contacts.forEach((contact) => {
     if (contact.capacite === undefined && contact.capacité !== undefined) contact.capacite = contact.capacité;
@@ -852,7 +883,9 @@ function archiveDuplicateGeneratedDeals(data) {
   const seenProjects = new Set();
   data.deals.forEach((deal) => {
     if (deal.auditDeal) {
-      const key = deal.contactId || deal.title;
+      const linkedContact = data.contacts?.find((contact) => contact.id === deal.contactId);
+      const canonicalName = canonicalRevenueClientName(`${linkedContact?.name || ""} ${deal.title || ""} ${deal.contact || ""}`);
+      const key = canonicalName ? `${canonicalName}:${deal.revenueYear || ""}:${Math.round(Number(deal.value || 0) * 100) / 100}` : deal.contactId || deal.title;
       if (seenAudits.has(key)) deal.archivedAt = deal.archivedAt || new Date().toISOString();
       else seenAudits.add(key);
     }
@@ -871,7 +904,7 @@ function syncContactProjectDealsInData(data, contact) {
     if (deal.contactId === contact.id && deal.projectId && !projectIds.has(deal.projectId)) deal.archivedAt = deal.archivedAt || new Date().toISOString();
   });
 
-  const auditDeals = data.deals.filter((deal) => deal.contactId === contact.id && deal.auditDeal);
+  const auditDeals = data.deals.filter((deal) => deal.contactId === contact.id && deal.auditDeal && !deal.archivedAt);
   const auditDeal = auditDeals[0];
   auditDeals.slice(1).forEach((deal) => {
     deal.archivedAt = deal.archivedAt || new Date().toISOString();
@@ -901,7 +934,7 @@ function syncContactProjectDealsInData(data, contact) {
   activeProjectsFromContact(contact).forEach((project) => {
     const total = projectTotalHt(project);
     const title = `${contact.name} · ${project.city || "Projet"}`;
-    const projectDeals = data.deals.filter((deal) => deal.contactId === contact.id && deal.projectId === project.id);
+    const projectDeals = data.deals.filter((deal) => deal.contactId === contact.id && deal.projectId === project.id && !deal.archivedAt);
     const existing = projectDeals[0];
     projectDeals.slice(1).forEach((deal) => {
       deal.archivedAt = deal.archivedAt || new Date().toISOString();
@@ -1583,8 +1616,7 @@ function revenueForecastRows() {
       const contact = findLinkedContactForDeal(deal);
       const canonicalName = canonicalRevenueClientName(`${deal.title || ""} ${deal.contact || ""} ${contact?.name || ""}`);
       const kind = deal.revenueCategory || (deal.auditDeal ? "Audit" : deal.countsAsOperation === false ? "Autre revenu" : "Projet");
-      const dueStatus = normalizeText(deal.due);
-      const realized = deal.auditDeal || dueStatus === "paye" || dueStatus.includes("realise") || dueStatus.includes("encaisse") || dueStatus.includes("regle");
+      const realized = deal.auditDeal || normalizePaymentStatus(deal.due) === "Payé";
       return {
         id: deal.id,
         contactId: contact?.id || deal.contactId || "",
@@ -1652,16 +1684,19 @@ function openRevenueForecastModal() {
             ${group.rows
               .map(
                 (row) => `
-                  <button class="forecast-row forecast-row-child" type="button" data-open-revenue-deal="${row.id}">
-                    <span>
-                      <strong>${htmlEscape(row.kind)}</strong>
-                      <small>${htmlEscape(row.stage)} · ${htmlEscape(row.detail)}</small>
-                    </span>
-                    <span class="forecast-row-right">
-                      <em>${row.status}</em>
-                      <strong>${formatExactMoney(row.value)} HT</strong>
-                    </span>
-                  </button>
+                  <div class="forecast-row forecast-row-child">
+                    <button class="forecast-row-main" type="button" data-open-revenue-deal="${row.id}">
+                      <span>
+                        <strong>${htmlEscape(row.kind)}</strong>
+                        <small>${htmlEscape(row.stage)} · ${htmlEscape(row.detail)}</small>
+                      </span>
+                      <span class="forecast-row-right">
+                        <em>${row.status}</em>
+                        <strong>${formatExactMoney(row.value)} HT</strong>
+                      </span>
+                    </button>
+                    <button class="ghost-button table-action" data-archive-revenue-deal="${row.id}" type="button">Sortir du CA</button>
+                  </div>
                 `
               )
               .join("")}
@@ -2212,6 +2247,23 @@ function exitDeal(dealId) {
   showToast("Opération sortie du pipe. La fiche client reste disponible.");
 }
 
+function archiveRevenueDeal(dealId) {
+  const deal = state.deals.find((item) => item.id === dealId);
+  if (!deal) return;
+  deal.archivedAt = new Date().toISOString();
+  if (deal.contactId && deal.projectId) {
+    const contact = state.contacts.find((item) => item.id === deal.contactId);
+    const project = contact?.projects?.find((item) => item.id === deal.projectId);
+    if (project) project.archivedAt = deal.archivedAt;
+  }
+  const modal = document.querySelector("#revenueForecastModal");
+  if (modal?.open) modal.close();
+  saveState();
+  render();
+  openRevenueForecastModal();
+  showToast("Ligne sortie du CA.");
+}
+
 function renderGantt() {
   const board = document.querySelector("#ganttBoard");
   const preview = document.querySelector("#dashboardGantt");
@@ -2306,10 +2358,12 @@ function paymentStatusOptions() {
 
 function normalizePaymentStatus(value, fallbackStatus = "") {
   const normalized = normalizeText(value);
+  if (normalized.includes("non paye") || normalized === "non") return "Non payé";
   if (normalized.includes("partiel")) return "Partiellement payé";
   if (normalized.includes("paye") || normalized.includes("realise") || normalized.includes("encaisse") || normalized.includes("regle")) return "Payé";
   if (value) return value;
   const fallback = normalizeText(fallbackStatus);
+  if (fallback.includes("non paye") || fallback === "non") return "Non payé";
   return fallback.includes("paye") || fallback.includes("realise") || fallback.includes("encaisse") || fallback.includes("regle") ? "Payé" : "Non payé";
 }
 
@@ -2980,7 +3034,7 @@ function syncContactProjectDeals(contact) {
   state.deals.forEach((deal) => {
     if (deal.contactId === contact.id && deal.projectId && !projectIds.has(deal.projectId)) deal.archivedAt = deal.archivedAt || new Date().toISOString();
   });
-  const auditDeals = state.deals.filter((deal) => deal.contactId === contact.id && deal.auditDeal);
+  const auditDeals = state.deals.filter((deal) => deal.contactId === contact.id && deal.auditDeal && !deal.archivedAt);
   const auditDeal = auditDeals[0];
   auditDeals.slice(1).forEach((deal) => {
     deal.archivedAt = deal.archivedAt || new Date().toISOString();
@@ -3009,7 +3063,7 @@ function syncContactProjectDeals(contact) {
   activeProjects(contact).forEach((project) => {
     const total = projectTotalHt(project);
     const title = `${contact.name} · ${project.city || "Projet"}`;
-    const projectDeals = state.deals.filter((deal) => deal.contactId === contact.id && deal.projectId === project.id);
+    const projectDeals = state.deals.filter((deal) => deal.contactId === contact.id && deal.projectId === project.id && !deal.archivedAt);
     const existing = projectDeals[0];
     projectDeals.slice(1).forEach((deal) => {
       deal.archivedAt = deal.archivedAt || new Date().toISOString();
@@ -4680,6 +4734,12 @@ document.querySelector("#metrics").addEventListener("keydown", (event) => {
   openRevenueForecastModal();
 });
 document.querySelector("#revenueForecastRows")?.addEventListener("click", (event) => {
+  const archiveButton = event.target.closest("[data-archive-revenue-deal]");
+  if (archiveButton) {
+    event.stopPropagation();
+    archiveRevenueDeal(archiveButton.dataset.archiveRevenueDeal);
+    return;
+  }
   const row = event.target.closest("[data-open-revenue-deal]");
   if (!row) return;
   const deal = state.deals.find((item) => item.id === row.dataset.openRevenueDeal);

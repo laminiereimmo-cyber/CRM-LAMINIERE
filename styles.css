@@ -1529,6 +1529,19 @@ tbody tr[data-contact-id]:hover {
   text-align: left;
 }
 
+.forecast-row-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
 .forecast-row-child {
   margin-left: 14px;
   width: calc(100% - 14px);

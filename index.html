@@ -676,6 +676,36 @@
       </form>
     </dialog>
 
+    <dialog class="modal" id="mergeContactModal">
+      <form class="modal-card" id="mergeContactForm">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">Nettoyage contacts</p>
+            <h2>Fusionner deux contacts</h2>
+          </div>
+          <button class="icon-button" value="cancel" formnovalidate type="submit" title="Fermer">
+            <span data-icon="x"></span>
+          </button>
+        </div>
+        <div class="form-grid">
+          <label class="field full">
+            <span>Contact à garder</span>
+            <select id="mergeKeepContact"></select>
+            <small>La fiche gardée recevra les projets, relances et lignes de CA.</small>
+          </label>
+          <label class="field full">
+            <span>Contact à absorber</span>
+            <select id="mergeSourceContact"></select>
+            <small>Cette fiche sera archivée après transfert.</small>
+          </label>
+        </div>
+        <div class="modal-actions">
+          <button class="ghost-button" value="cancel" formnovalidate type="submit">Annuler</button>
+          <button class="primary-button" value="default" type="submit">Fusionner</button>
+        </div>
+      </form>
+    </dialog>
+
     <dialog class="modal" id="revenueForecastModal">
       <form class="modal-card forecast-modal-card" method="dialog">
         <div class="modal-header">
