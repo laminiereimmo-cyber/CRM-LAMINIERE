@@ -4,7 +4,7 @@ const STORE_VERSION_KEY = "laminiere-crm-version";
 const CLOUD_CONFIG_KEY = "laminiere-crm-cloud-config";
 const CLOUD_META_KEY = "laminiere-crm-cloud-meta";
 const LOCAL_UPDATED_KEY = "laminiere-crm-local-updated-at";
-const APP_VERSION = "0.20.2";
+const APP_VERSION = "0.20.3";
 const REVENUE_TARGETS_HT = {
   2026: 100800,
   2027: null
@@ -620,6 +620,39 @@ function migrateRevenueState(data) {
           status: "Solde à encaisser"
         }
       ]
+    },
+    {
+      name: "Hadrien MANTION",
+      id: "c3",
+      source: "LaMinière",
+      status: "Analyse de projet",
+      auditStatus: "Non applicable",
+      auditFee: 390,
+      search: "Coaching analyse de biens à Sète",
+      patrimoine: "Coaching ponctuel facturé et réglé",
+      target: "Formation / coaching",
+      sector: "Sète, Hérault",
+      projects: [
+        {
+          city: "Coaching analyse de biens à Sète",
+          source: "Coaching",
+          revenueYear: "2026",
+          revenueDate: "2026-01-15",
+          acquisitionPrice: 0,
+          mandateRate: 0,
+          mandateFeeTtc: 390,
+          mandateFeeHt: 325,
+          works: 0,
+          worksRate: 0,
+          worksFeeTtc: 0,
+          worksFeeHt: 0,
+          auditFeeTtc: 0,
+          auditFeeHt: 0,
+          furniture: 0,
+          status: "Réalisé / encaissé",
+          countsAsOperation: false
+        }
+      ]
     }
   ];
 
@@ -671,12 +704,17 @@ function migrateRevenueState(data) {
     }
     ensureContactDefaults(contact);
     contact.auditStatus = spec.auditStatus;
-    contact.auditFee = 3000;
+    contact.auditFee = Number(spec.auditFee || 3000);
     contact.auditPaidDate = spec.auditPaidDate;
     contact.auditPaidYear = yearFromDate(spec.auditPaidDate);
     if (!contact.source || contact.source === "CJ") contact.source = spec.source;
     if (spec.status) contact.status = spec.status;
+    if (spec.search) contact.search = spec.search;
+    if (spec.patrimoine) contact.patrimoine = spec.patrimoine;
+    if (spec.target) contact.target = spec.target;
+    if (spec.sector) contact.sector = spec.sector;
     contact.projects = spec.projects.map(createProject);
+    syncContactProjectDealsInData(data, contact);
   });
 
   data.contacts.forEach((contact) => {
@@ -732,6 +770,67 @@ function archiveDuplicateGeneratedDeals(data) {
       if (seenProjects.has(key)) deal.archivedAt = deal.archivedAt || new Date().toISOString();
       else seenProjects.add(key);
     }
+  });
+}
+
+function syncContactProjectDealsInData(data, contact) {
+  ensureContactDefaults(contact);
+  const projectIds = new Set(activeProjectsFromContact(contact).map((project) => project.id));
+  data.deals.forEach((deal) => {
+    if (deal.contactId === contact.id && deal.projectId && !projectIds.has(deal.projectId)) deal.archivedAt = deal.archivedAt || new Date().toISOString();
+  });
+
+  const auditDeals = data.deals.filter((deal) => deal.contactId === contact.id && deal.auditDeal);
+  const auditDeal = auditDeals[0];
+  auditDeals.slice(1).forEach((deal) => {
+    deal.archivedAt = deal.archivedAt || new Date().toISOString();
+  });
+  const auditYear = auditRevenueYear(contact);
+  const auditValue = isAuditRevenueRecognized(contact) ? Number(contact.auditFee || 0) / 1.2 : 0;
+  if (auditValue) {
+    const payload = {
+      contactId: contact.id,
+      auditDeal: true,
+      revenueYear: auditYear,
+      revenueDate: contact.auditPaidDate || contact.signatureDate || "",
+      title: `${contact.name} · Audit 3k`,
+      contact: "Audit patrimonial payé",
+      value: auditValue,
+      stage: contact.status && getStages().includes(contact.status) ? contact.status : "Audit patrimonial",
+      due: "Payé",
+      checks: ["Audit", "Facturation"],
+      archivedAt: ""
+    };
+    if (auditDeal) Object.assign(auditDeal, payload);
+    else data.deals.unshift({ id: crypto.randomUUID(), ...payload });
+  } else if (auditDeal) {
+    auditDeal.archivedAt = auditDeal.archivedAt || new Date().toISOString();
+  }
+
+  activeProjectsFromContact(contact).forEach((project) => {
+    const total = projectTotalHt(project);
+    const title = `${contact.name} · ${project.city || "Projet"}`;
+    const projectDeals = data.deals.filter((deal) => deal.contactId === contact.id && deal.projectId === project.id);
+    const existing = projectDeals[0];
+    projectDeals.slice(1).forEach((deal) => {
+      deal.archivedAt = deal.archivedAt || new Date().toISOString();
+    });
+    const payload = {
+      contactId: contact.id,
+      projectId: project.id,
+      revenueYear: projectRevenueYear(project),
+      revenueDate: project.revenueDate || "",
+      title,
+      contact: `Mandat ${project.source || "CJ"} · ${formatExactMoney(project.acquisitionPrice || 0)}`,
+      value: total,
+      countsAsOperation: project.countsAsOperation !== false,
+      stage: contact.status && getStages().includes(contact.status) ? contact.status : "Analyse de projet",
+      due: project.status || "En cours",
+      checks: ["Mandat", "Financement", "Acte"],
+      archivedAt: ""
+    };
+    if (existing) Object.assign(existing, payload);
+    else data.deals.unshift({ id: crypto.randomUUID(), ...payload });
   });
 }
 
@@ -1388,7 +1487,8 @@ function revenueForecastRows() {
     .map((deal) => {
       const contact = findLinkedContactForDeal(deal);
       const kind = deal.auditDeal ? "Audit" : deal.countsAsOperation === false ? "Solde" : "Projet";
-      const realized = deal.auditDeal || ["Acquisition", "Travaux", "Ameublement", "Location", "Bascule Hunb'up"].includes(deal.stage) || normalizeText(deal.due).includes("paye");
+      const dueStatus = normalizeText(deal.due);
+      const realized = deal.auditDeal || ["Acquisition", "Travaux", "Ameublement", "Location", "Bascule Hunb'up"].includes(deal.stage) || dueStatus.includes("paye") || dueStatus.includes("realise") || dueStatus.includes("encaisse") || dueStatus.includes("regle");
       return {
         id: deal.id,
         title: deal.title || contact?.name || "Dossier",
@@ -2050,7 +2150,7 @@ function knownProjectsForContact(name) {
       { city: "Murviel", source: "LM", revenueYear: "2026", acquisitionPrice: 100000, mandateFeeTtc: 7000, mandateFeeHt: 3333.33, works: 18000, worksFeeTtc: 0, worksFeeHt: 0, auditFeeTtc: 0, auditFeeHt: 0, furniture: 0 }
     ],
     "camille mpi et dorian": [
-      { city: "Murviel", source: "LM", revenueYear: "2026", acquisitionPrice: 200000, mandateFeeTtc: 14000, mandateFeeHt: 9166.67, works: 10000, worksFeeTtc: 700, worksFeeHt: 583.33, auditFeeTtc: 0, auditFeeHt: 0, furniture: 0 }
+      { city: "Projet à réussir", source: "LM", revenueYear: "2026", acquisitionPrice: 220000, mandateFeeTtc: 15400, mandateFeeHt: 10333.33, works: 10000, worksFeeTtc: 700, worksFeeHt: 583.33, auditFeeTtc: 0, auditFeeHt: 0, furniture: 0 }
     ],
     "clement fenouillet": [
       { city: "Solde mandat", source: "LM", revenueYear: "2026", revenueDate: "2026-01-15", acquisitionPrice: 0, mandateRate: 0, mandateFeeTtc: 2880, mandateFeeHt: 2400, works: 0, worksRate: 0, worksFeeTtc: 0, worksFeeHt: 0, auditFeeTtc: 0, auditFeeHt: 0, furniture: 0, status: "Solde à encaisser", countsAsOperation: false }
@@ -2125,6 +2225,10 @@ function isDealInSelectedRevenueYear(deal) {
 }
 
 function activeProjects(contact) {
+  return (contact.projects || []).map(ensureProjectDefaults).filter((project) => !project.archivedAt);
+}
+
+function activeProjectsFromContact(contact) {
   return (contact.projects || []).map(ensureProjectDefaults).filter((project) => !project.archivedAt);
 }
 
