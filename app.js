@@ -4,7 +4,7 @@ const STORE_VERSION_KEY = "laminiere-crm-version";
 const CLOUD_CONFIG_KEY = "laminiere-crm-cloud-config";
 const CLOUD_META_KEY = "laminiere-crm-cloud-meta";
 const LOCAL_UPDATED_KEY = "laminiere-crm-local-updated-at";
-const APP_VERSION = "0.20.5";
+const APP_VERSION = "0.20.6";
 const REVENUE_TARGETS_HT = {
   2026: 100800,
   2027: null
@@ -4166,16 +4166,31 @@ function openModal(type) {
   const editedTaskClientId = editedTask?.clientId || (editedTask ? findTaskClient(editedTask)?.id : "") || "";
   const config = {
     property: {
-      title: "Nouveau parcours",
-      fields: [
-        ["title", "Parcours", isGvhContext ? "Hunb'up - Bascule patrimoniale" : "LaMinière - Clé en main ancien", "select", "", ["LaMinière - Clé en main ancien", "Audit patrimonial 3k TTC", "Mandat de recherche ancien", "Suivi travaux et ameublement", "Formation investisseur autonome", "Coaching investisseur", "Hunb'up - Bascule patrimoniale"]],
-        ["city", "Cible", isGvhContext ? "Placement financier" : "Petit immeuble de rapport", "select", "", ["Petit immeuble de rapport", "Appartement ancien", "Colocation", "Division / creation de lots", "Opération avec travaux", "Placement financier", "Formation / coaching"]],
-        ["price", "Valeur", isGvhContext ? "10000" : "4500", "select", "", ["3000", "390", "1500", "2500", "4500", "10000"]],
-        ["area", "Étapes", isGvhContext ? "4" : "9", "select", "", ["1", "4", "6", "8", "9"]],
-        ["rooms", "Livrables", isGvhContext ? "3" : "8", "select", "", ["1", "3", "4", "5", "8"]],
-        ["owner", "Description", isGvhContext ? "Audit patrimonial, assurance vie, stratégie financière" : "Audit, sourcing, banque, notaire, travaux, location"],
-        ["status", "Univers", isGvhContext ? "Hunb'up" : "LaMinière", "select", "", [["LaMinière", "LaMinière"], "Hunb'up", "Formation", "Suivi"]]
-      ]
+      title: isGvhContext ? "Préparer Hunb'up" : "Nouveau parcours",
+      fields: isGvhContext
+        ? [
+            ["contactId", "Client existant", "", "select", "full", [["", "Créer un nouveau client / prospect"], ...activeContacts().map((contact) => [contact.id, contact.name])]],
+            ["name", "Nom", "Client à qualifier"],
+            ["firstName", "Prénom", ""],
+            ["email", "Email", ""],
+            ["phone", "Téléphone", ""],
+            ["source", "Source", "Hunb'up", "select", "", ["Hunb'up", "LaMinière", "Recommandation", "Client existant", "Partenaire", "Autre"]],
+            ["gvhEnvelope", "Solution / enveloppe", "Assurance vie", "select", "", ["Assurance vie", "PER", "CTO", "Trésorerie", "Allocation globale", "À définir"]],
+            ["price", "Montant à placer / suivre", "10000", "number"],
+            ["gvhRisk", "Profil de risque", "À définir", "select", "", ["À définir", "Prudent", "Équilibré", "Dynamique"]],
+            ["search", "Objectif patrimonial", "Bascule patrimoniale / placement financier", "text", "full"],
+            ["owner", "Responsable", "Gabriel Valette", "select", "", ["Gabriel Valette", "Anais Vergnon Valette", "Hunb'up", "Partenaire"]],
+            ["next", "Prochaine action", "Préparer DER / recueil d'informations", "text", "full"]
+          ]
+        : [
+            ["title", "Parcours", "LaMinière - Clé en main ancien", "select", "", ["LaMinière - Clé en main ancien", "Audit patrimonial 3k TTC", "Mandat de recherche ancien", "Suivi travaux et ameublement", "Formation investisseur autonome", "Coaching investisseur", "Hunb'up - Bascule patrimoniale"]],
+            ["city", "Cible", "Petit immeuble de rapport", "select", "", ["Petit immeuble de rapport", "Appartement ancien", "Colocation", "Division / creation de lots", "Opération avec travaux", "Placement financier", "Formation / coaching"]],
+            ["price", "Valeur", "4500", "select", "", ["3000", "390", "1500", "2500", "4500", "10000"]],
+            ["area", "Étapes", "9", "select", "", ["1", "4", "6", "8", "9"]],
+            ["rooms", "Livrables", "8", "select", "", ["1", "3", "4", "5", "8"]],
+            ["owner", "Description", "Audit, sourcing, banque, notaire, travaux, location"],
+            ["status", "Univers", "LaMinière", "select", "", [["LaMinière", "LaMinière"], "Hunb'up", "Formation", "Suivi"]]
+          ]
     },
     deal: {
       title: "Nouvelle opération",
@@ -4279,6 +4294,63 @@ function createEntry(type, values) {
     return false;
   }
   if (type === "property") {
+    if (activeView === "gvh") {
+      let contact = state.contacts.find((item) => item.id === values.contactId);
+      if (!contact) {
+        const contactName = buildContactDisplayName(values.firstName, values.name, values.name);
+        if (!contactName) {
+          showToast("Choisis un client existant ou renseigne un nom.");
+          return false;
+        }
+        contact = ensureContactDefaults({
+          id: crypto.randomUUID(),
+          name: contactName,
+          firstName: values.firstName,
+          lastName: values.name,
+          email: values.email,
+          phone: values.phone,
+          source: values.source || "Hunb'up",
+          type: "Prospect",
+          search: values.search || "Bascule patrimoniale / placement financier",
+          patrimoine: "À qualifier côté Hunb'up",
+          auditStatus: "Non applicable",
+          auditFee: 0,
+          mandateStatus: "Non applicable",
+          gvhStatus: "À préparer",
+          gvhEnvelope: values.gvhEnvelope,
+          gvhAmount: Number(values.price || 0),
+          gvhRisk: values.gvhRisk,
+          priority: "Normale",
+          owner: values.owner || "Gabriel Valette",
+          status: "Bascule Hunb'up",
+          next: values.next || "Préparer DER / recueil d'informations",
+          createdAt: new Date().toISOString().slice(0, 10),
+          docChecks: {},
+          timelineChecks: {},
+          archivedAt: "",
+          projects: []
+        });
+        state.contacts.unshift(contact);
+      } else {
+        ensureContactDefaults(contact);
+        contact.gvhStatus = "À préparer";
+        contact.gvhEnvelope = values.gvhEnvelope || contact.gvhEnvelope;
+        contact.gvhAmount = Number(values.price || contact.gvhAmount || 0);
+        contact.gvhRisk = values.gvhRisk || contact.gvhRisk;
+        contact.cgpStatus = contact.cgpStatus || "À qualifier";
+        contact.cgpMission = contact.cgpMission || "Bilan patrimonial";
+        contact.status = "Bascule Hunb'up";
+        contact.next = values.next || contact.next || "Préparer DER / recueil d'informations";
+        contact.owner = values.owner || contact.owner;
+        if (values.search) contact.search = values.search;
+      }
+      saveState();
+      render();
+      showToast("Client préparé dans Hunb'up.");
+      openContactDrawer(contact.id);
+      setDrawerTab("gvh");
+      return true;
+    }
     state.properties.unshift({
       id: crypto.randomUUID(),
       title: values.title,
