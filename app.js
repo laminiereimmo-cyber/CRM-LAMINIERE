@@ -4,7 +4,7 @@ const STORE_VERSION_KEY = "laminiere-crm-version";
 const CLOUD_CONFIG_KEY = "laminiere-crm-cloud-config";
 const CLOUD_META_KEY = "laminiere-crm-cloud-meta";
 const LOCAL_UPDATED_KEY = "laminiere-crm-local-updated-at";
-const APP_VERSION = "0.20.3";
+const APP_VERSION = "0.20.5";
 const REVENUE_TARGETS_HT = {
   2026: 100800,
   2027: null
@@ -168,15 +168,15 @@ const contactPresets = {
   },
   coaching: {
     label: "Coaching investisseur",
-    search: "Coaching investisseur autonome",
+    search: "Coaching analyse de biens",
     patrimoine: "Premier investissement / besoin méthode",
     auditStatus: "Non applicable",
     auditFee: 390,
     mandateStatus: "Coaching",
     gvhStatus: "Pas encore",
-    target: "Opération simple",
+    target: "Formation / coaching",
     regime: "À définir",
-    status: "Sourcing",
+    status: "Coaching immobilier",
     next: "Planifier session coaching"
   },
   prospect: {
@@ -518,6 +518,7 @@ const pageTitles = {
   properties: "Parcours client",
   contacts: "Contacts",
   prospects: "Prospects",
+  coaching: "Coaching immobilier",
   analysis: "Analyse de bien",
   pipeline: "Opérations accompagnées",
   gantt: "Planning dossiers",
@@ -586,6 +587,7 @@ function migrateRevenueState(data) {
     },
     {
       name: "Camille (MPI) et Dorian",
+      aliases: ["Dorian CAVALIER Camille DECLERCK", "Camille DECLERCK Dorian CAVALIER", "Camille et Dorian"],
       id: "c-rev-camille-dorian",
       source: "LaMinière",
       status: "Analyse de projet",
@@ -625,19 +627,24 @@ function migrateRevenueState(data) {
       name: "Hadrien MANTION",
       id: "c3",
       source: "LaMinière",
-      status: "Analyse de projet",
+      status: "Coaching immobilier",
+      type: "Coaching",
       auditStatus: "Non applicable",
       auditFee: 390,
       search: "Coaching analyse de biens à Sète",
       patrimoine: "Coaching ponctuel facturé et réglé",
       target: "Formation / coaching",
       sector: "Sète, Hérault",
+      next: "Coaching réglé",
       projects: [
         {
           city: "Coaching analyse de biens à Sète",
           source: "Coaching",
           revenueYear: "2026",
           revenueDate: "2026-01-15",
+          revenueCategory: "Coaching",
+          missionType: "Analyse de biens à Sète",
+          comment: "Coaching analyse de biens à Sète dans l'Hérault. 390 € TTC facturé et réglé, soit 325 € HT.",
           acquisitionPrice: 0,
           mandateRate: 0,
           mandateFeeTtc: 390,
@@ -653,13 +660,54 @@ function migrateRevenueState(data) {
           countsAsOperation: false
         }
       ]
+    },
+    {
+      name: "Alexis / Bayan",
+      id: "c-rev-montfrin-alexis-bayan",
+      source: "Montfrin",
+      status: "Travaux",
+      auditStatus: "Non applicable",
+      auditFee: 0,
+      search: "Hôtel de Calvières - Montfrin",
+      patrimoine: "Mission spéciale AMO stratégique patrimoniale",
+      target: "Projet patrimonial complexe ISMH",
+      sector: "Montfrin",
+      notes: "Dossier patrimonial ISMH, coordination architecte/géomètre, aide à la stratégie de sortie, PC potentiel 14 à 18 lots, scénario de vente ou valorisation.",
+      projects: [
+        {
+          city: "Hôtel de Calvières - Montfrin",
+          source: "Mission spéciale",
+          revenueYear: "2026",
+          revenueDate: "2026-01-15",
+          revenueCategory: "Mission spéciale / AMO stratégique",
+          missionType: "Projet patrimonial complexe ISMH",
+          comment: "Forfait HT pour stratégie de sortie / valorisation, PC, architecte, géomètre, ABF/DRAC, potentiel 14 à 18 lots.",
+          acquisitionPrice: 0,
+          mandateRate: 0,
+          mandateFeeTtc: 6000,
+          mandateFeeHt: 5000,
+          works: 0,
+          worksRate: 0,
+          worksFeeTtc: 0,
+          worksFeeHt: 0,
+          auditFeeTtc: 0,
+          auditFeeHt: 0,
+          furniture: 0,
+          status: "En cours",
+          countsAsOperation: false
+        }
+      ]
     }
   ];
 
-  const revenueNames = new Set(revenueSpecs.map((spec) => normalizeText(spec.name)));
+  const revenueNames = new Set(revenueSpecs.flatMap((spec) => [spec.name, ...(spec.aliases || [])].map(normalizeText)));
   revenueSpecs.forEach((spec) => {
-    const normalizedName = normalizeText(spec.name);
-    let contact = data.contacts.find((item) => normalizeText(item.name) === normalizedName);
+    const normalizedNames = [spec.name, ...(spec.aliases || [])].map(normalizeText);
+    const matchingContacts = data.contacts.filter((item) => normalizedNames.includes(normalizeText(item.name)));
+    let contact = matchingContacts[0];
+    matchingContacts.slice(1).forEach((duplicate) => {
+      duplicate.archivedAt = duplicate.archivedAt || new Date().toISOString();
+    });
     if (!contact) {
       contact = {
         id: spec.id,
@@ -703,16 +751,20 @@ function migrateRevenueState(data) {
       data.contacts.push(contact);
     }
     ensureContactDefaults(contact);
+    contact.name = spec.name;
     contact.auditStatus = spec.auditStatus;
     contact.auditFee = Number(spec.auditFee || 3000);
     contact.auditPaidDate = spec.auditPaidDate;
     contact.auditPaidYear = yearFromDate(spec.auditPaidDate);
     if (!contact.source || contact.source === "CJ") contact.source = spec.source;
     if (spec.status) contact.status = spec.status;
+    if (spec.type) contact.type = spec.type;
     if (spec.search) contact.search = spec.search;
     if (spec.patrimoine) contact.patrimoine = spec.patrimoine;
     if (spec.target) contact.target = spec.target;
     if (spec.sector) contact.sector = spec.sector;
+    if (spec.next) contact.next = spec.next;
+    if (spec.notes) contact.notes = spec.notes;
     contact.projects = spec.projects.map(createProject);
     syncContactProjectDealsInData(data, contact);
   });
@@ -824,6 +876,8 @@ function syncContactProjectDealsInData(data, contact) {
       contact: `Mandat ${project.source || "CJ"} · ${formatExactMoney(project.acquisitionPrice || 0)}`,
       value: total,
       countsAsOperation: project.countsAsOperation !== false,
+      revenueCategory: project.revenueCategory || "Mandat / clé en main",
+      missionType: project.missionType || "",
       stage: contact.status && getStages().includes(contact.status) ? contact.status : "Analyse de projet",
       due: project.status || "En cours",
       checks: ["Mandat", "Financement", "Acte"],
@@ -907,6 +961,7 @@ function render() {
   renderProperties();
   renderContacts();
   renderProspects();
+  renderCoaching();
   renderPipeline();
   renderGantt();
   renderTasks();
@@ -1486,7 +1541,7 @@ function revenueForecastRows() {
     .sort((a, b) => Number(b.value || 0) - Number(a.value || 0))
     .map((deal) => {
       const contact = findLinkedContactForDeal(deal);
-      const kind = deal.auditDeal ? "Audit" : deal.countsAsOperation === false ? "Solde" : "Projet";
+      const kind = deal.revenueCategory || (deal.auditDeal ? "Audit" : deal.countsAsOperation === false ? "Autre revenu" : "Projet");
       const dueStatus = normalizeText(deal.due);
       const realized = deal.auditDeal || ["Acquisition", "Travaux", "Ameublement", "Location", "Bascule Hunb'up"].includes(deal.stage) || dueStatus.includes("paye") || dueStatus.includes("realise") || dueStatus.includes("encaisse") || dueStatus.includes("regle");
       return {
@@ -1816,7 +1871,13 @@ function renderContacts() {
 function isProspect(contact) {
   ensureContactDefaults(contact);
   const haystack = normalizeText([contact.type, contact.status, contact.search, contact.patrimoine, contact.target, contact.next].join(" "));
-  return contact.type === "Prospect" || contact.status === "Prospect" || haystack.includes("prospect");
+  return !isCoachingContact(contact) && (contact.type === "Prospect" || contact.status === "Prospect" || haystack.includes("prospect"));
+}
+
+function isCoachingContact(contact) {
+  ensureContactDefaults(contact);
+  const haystack = normalizeText([contact.type, contact.status, contact.search, contact.patrimoine, contact.target, contact.next].join(" "));
+  return contact.type === "Coaching" || contact.status === "Coaching immobilier" || haystack.includes("coaching");
 }
 
 function prospectRelances(contact) {
@@ -1867,6 +1928,37 @@ function renderProspects() {
         `;
       })
       .join("") || emptyState("Aucun prospect à relancer pour le moment.");
+}
+
+function renderCoaching() {
+  const target = document.querySelector("#coachingGrid");
+  if (!target) return;
+  const clients = activeContacts().filter(isCoachingContact).filter(matchesSearch);
+  target.innerHTML =
+    clients
+      .map((contact) => {
+        const projects = activeProjects(contact).filter((project) => project.revenueCategory === "Coaching" || normalizeText(project.source).includes("coaching") || normalizeText(project.city).includes("coaching"));
+        const total = projects.reduce((sum, project) => sum + projectTotalHt(project), 0);
+        const realized = projects.filter((project) => normalizeText(project.status).includes("realise") || normalizeText(project.status).includes("encaisse")).reduce((sum, project) => sum + projectTotalHt(project), 0);
+        return `
+          <article class="prospect-card" data-coaching-contact-id="${contact.id}">
+            <div>
+              <span class="badge">Coaching immobilier</span>
+              <h3>${htmlEscape(contact.name)}</h3>
+              <p>${htmlEscape(contact.search || "Analyse ponctuelle")}</p>
+            </div>
+            <div class="property-meta">
+              <span>${htmlEscape(contact.sector || "Secteur à préciser")}</span>
+              <span>${formatExactMoney(total)} HT</span>
+              <span>${realized ? `Réalisé ${formatExactMoney(realized)} HT` : "Paiement à renseigner"}</span>
+            </div>
+            <div class="card-actions">
+              <button class="ghost-button" type="button" data-open-coaching="${contact.id}">Ouvrir</button>
+            </div>
+          </article>
+        `;
+      })
+      .join("") || emptyState("Aucun coaching immobilier enregistré.");
 }
 
 function addDecemberProspectRelance(contactId) {
@@ -2135,6 +2227,19 @@ function buildContactDisplayName(firstName, lastName, fallback = "") {
   return [firstName, lastName].map((part) => String(part || "").trim()).filter(Boolean).join(" ") || String(fallback || "").trim();
 }
 
+function revenueCategoryOptions() {
+  return [
+    "Mandat / clé en main",
+    "Audit",
+    "Coaching",
+    "Honoraires travaux",
+    "Formation",
+    "Mission spéciale / AMO stratégique",
+    "Solde mandat",
+    "Autre"
+  ];
+}
+
 function knownProjectsForContact(name) {
   const normalized = normalizeText(name);
   const templates = {
@@ -2171,6 +2276,9 @@ function createProject(data = {}) {
     id: data.id || crypto.randomUUID(),
     source: data.source || "CJ",
     city: data.city || data.name || "Projet",
+    revenueCategory: data.revenueCategory || (data.countsAsOperation === false && normalizeText(data.city || data.name) === "solde mandat" ? "Solde mandat" : "Mandat / clé en main"),
+    missionType: data.missionType || "",
+    comment: data.comment || "",
     revenueYear: String(data.revenueYear || yearFromDate(data.revenueDate) || selectedRevenueYear),
     revenueDate: data.revenueDate || "",
     acquisitionPrice,
@@ -2316,6 +2424,14 @@ const clientFieldGroups = {
     ["target", "Cible recherchee", "text"],
     ["sector", "Secteur", "text"]
   ],
+  coaching: [
+    ["type", "Segment", "select", ["Prospect", "Qualifié", "Client", "Coaching", "Partenaire", "Client Hunb'up"]],
+    ["status", "Statut coaching", "select", ["Coaching immobilier", "Analyse de projet", "Réalisé", "Archivé"]],
+    ["search", "Mission", "text", null, "full"],
+    ["sector", "Ville / secteur", "text"],
+    ["next", "Suivi / prochaine action", "text", null, "full"],
+    ["notes", "Notes coaching", "text", null, "full"]
+  ],
   mandate: [
     ["mandateStatus", "Mandat de recherche", "select", ["Non signé", "À proposer", "Envoyé", "Signé", "Coaching"]],
     ["signatureDate", "Signature prevue / signee", "date"],
@@ -2382,6 +2498,7 @@ function openContactDrawer(contactId) {
     if (target) target.innerHTML = fields.map((field) => fieldTemplate(field, contact)).join("");
   });
   renderMandateProjects(contact);
+  renderCoachingProjects(contact);
   const mandateProjects = document.querySelector("#mandateProjects");
   if (mandateProjects) mandateProjects.dataset.auditHt = String(auditRevenueHt(contact, selectedRevenueYear));
   renderClientTimeline(contact);
@@ -2419,10 +2536,50 @@ function renderMandateProjects(contact) {
   `;
 }
 
+function renderCoachingProjects(contact) {
+  const target = document.querySelector("#coachingProjects");
+  if (!target) return;
+  const projects = activeProjects(contact).filter((project) => project.revenueCategory === "Coaching" || normalizeText(project.source).includes("coaching") || normalizeText(project.city).includes("coaching"));
+  const total = projects
+    .filter((project) => projectRevenueYear(project) === String(selectedRevenueYear))
+    .reduce((sum, project) => sum + projectTotalHt(project), 0);
+  target.innerHTML = `
+    <div class="project-header">
+      <div>
+        <p class="eyebrow">Coaching immobilier</p>
+        <h3>Analyse de biens / coaching ponctuel</h3>
+        <span class="client-mini">Rubrique séparée des prospects, audits et mandats.</span>
+      </div>
+      <strong>${formatExactMoney(total)} HT</strong>
+    </div>
+    <div class="project-list">
+      ${projects
+        .map(
+          (project) => `
+            <article class="project-row">
+              <div class="project-row-head">
+                <strong>${htmlEscape(project.city || "Coaching")}</strong>
+                <span class="score-pill">${formatExactMoney(projectTotalHt(project))}</span>
+              </div>
+              <div class="property-meta">
+                <span>${htmlEscape(project.status || "Statut à préciser")}</span>
+                <span>${htmlEscape(project.revenueYear || selectedRevenueYear)}</span>
+                <span>${htmlEscape(project.comment || "Coaching immobilier ponctuel.")}</span>
+              </div>
+            </article>
+          `
+        )
+        .join("") || emptyState("Aucun coaching rattaché à cette fiche.")}
+    </div>
+  `;
+}
+
 function projectTemplate(project) {
   ensureProjectDefaults(project);
   const fields = [
     ["source", "Origine", "text"],
+    ["revenueCategory", "Catégorie revenu", "select", revenueCategoryOptions()],
+    ["missionType", "Type mission", "text"],
     ["city", "Projet / ville", "text"],
     ["revenueYear", "Année CA", "number"],
     ["acquisitionPrice", "Prix acquisition", "number"],
@@ -2435,7 +2592,8 @@ function projectTemplate(project) {
     ["worksFeeHt", "Hono travaux HT", "number"],
     ["auditFeeTtc", "Audit TTC", "number"],
     ["auditFeeHt", "Audit HT", "number"],
-    ["furniture", "Meubles", "number"]
+    ["furniture", "Meubles", "number"],
+    ["comment", "Commentaire", "text"]
   ];
   return `
     <article class="project-row" data-project-id="${project.id}">
@@ -2446,10 +2604,14 @@ function projectTemplate(project) {
       <div class="project-grid">
         ${fields
           .map(
-            ([name, label, type]) => `
+            ([name, label, type, options = []]) => `
               <label class="field">
                 <span>${label}</span>
-                <input data-project-field="${name}" type="${type}" value="${String(project[name] ?? "").replaceAll('"', "&quot;")}" />
+                ${
+                  type === "select"
+                    ? `<select data-project-field="${name}">${options.map((option) => `<option value="${option}" ${String(project[name] || "") === option ? "selected" : ""}>${option}</option>`).join("")}</select>`
+                    : `<input data-project-field="${name}" type="${type}" value="${String(project[name] ?? "").replaceAll('"', "&quot;")}" />`
+                }
               </label>
             `
           )
@@ -2747,6 +2909,8 @@ function syncContactProjectDeals(contact) {
       contact: `Mandat ${project.source || "CJ"} · ${formatExactMoney(project.acquisitionPrice || 0)}`,
       value: total,
       countsAsOperation: project.countsAsOperation !== false,
+      revenueCategory: project.revenueCategory || "Mandat / clé en main",
+      missionType: project.missionType || "",
       stage: contact.status && getStages().includes(contact.status) ? contact.status : "Analyse de projet",
       due: project.status || "En cours",
       checks: ["Mandat", "Financement", "Acte"],
@@ -3997,6 +4161,7 @@ function registerServiceWorker() {
 function openModal(type) {
   const isGvhContext = activeView === "gvh";
   const isProspectContext = activeView === "prospects";
+  const isCoachingContext = activeView === "coaching";
   const editedTask = type === "task" && editingTaskId ? ensureTaskDefaults(state.tasks.find((task) => task.id === editingTaskId) || {}) : null;
   const editedTaskClientId = editedTask?.clientId || (editedTask ? findTaskClient(editedTask)?.id : "") || "";
   const config = {
@@ -4025,25 +4190,25 @@ function openModal(type) {
       ]
     },
     contact: {
-      title: isProspectContext ? "Nouveau prospect" : "Nouveau contact",
+      title: isProspectContext ? "Nouveau prospect" : isCoachingContext ? "Nouveau coaching" : "Nouveau contact",
       fields: [
-        ["preset", "Modèle", isProspectContext ? "audit" : "mandate", "select", "", Object.entries(contactPresets).map(([value, preset]) => [value, preset.label])],
+        ["preset", "Modèle", isProspectContext ? "audit" : isCoachingContext ? "coaching" : "mandate", "select", "", Object.entries(contactPresets).map(([value, preset]) => [value, preset.label])],
         ["name", "Nom", "Dubois"],
         ["firstName", "Prénom", "Claire"],
         ["email", "Email", "claire@email.fr"],
         ["phone", "Téléphone", "06..."],
-        ["source", "Source", isProspectContext ? "Recommandation" : "CJ", "select", "", ["CJ", "Recommandation", "Instagram", "LinkedIn", "Site web", "Evenement", "Client existant", "Partenaire", "Autre"]],
-        ["search", "Projet", isProspectContext ? "Prospect à qualifier" : "Petit immeuble ancien de rapport", "text", "full"],
+        ["source", "Source", isProspectContext ? "Recommandation" : isCoachingContext ? "LaMinière TC" : "CJ", "select", "", ["CJ", "Recommandation", "Instagram", "LinkedIn", "Site web", "Evenement", "Client existant", "Partenaire", "LaMinière TC", "Autre"]],
+        ["search", "Projet", isProspectContext ? "Prospect à qualifier" : isCoachingContext ? "Coaching analyse de biens" : "Petit immeuble ancien de rapport", "text", "full"],
         ["patrimoine", "Situation patrimoniale", "À auditer", "text", "full"],
         ["apport", "Apport", "30000", "number"],
         ["capacite", "Capacité bancaire", "220000", "number"],
         ["regime", "Regime vise", "Meuble probable", "select", "", ["À définir", "Nu", "Meuble probable", "LMNP", "LMP", "SCI", "Autre"]],
-        ["target", "Cible", "Petit immeuble de rapport", "select", "", ["À définir", "Petit immeuble de rapport", "Appartement ancien", "Colocation", "Division / creation de lots", "Opération avec travaux", "Placement financier", "Formation / coaching"]],
+        ["target", "Cible", isCoachingContext ? "Formation / coaching" : "Petit immeuble de rapport", "select", "", ["À définir", "Petit immeuble de rapport", "Appartement ancien", "Colocation", "Division / creation de lots", "Opération avec travaux", "Placement financier", "Formation / coaching"]],
         ["sector", "Secteur", "Ville / zone"],
         ["priority", "Priorité", "Normale", "select", "", ["Basse", "Normale", "Moyenne", "Haute"]],
         ["owner", "Responsable", "Gabriel Valette", "select", "", ["Gabriel Valette", "Anais Vergnon Valette", "LaMinière", "Hunb'up", "Partenaire"]],
-        ["status", "Étape", isProspectContext ? "Prospect" : "Audit patrimonial", "select", "", ["Prospect", ...getStages()]],
-        ["next", "Prochaine action", isProspectContext ? "Relance prévue en décembre" : "Compléter audit patrimonial", "text", "full"]
+        ["status", "Étape", isProspectContext ? "Prospect" : isCoachingContext ? "Coaching immobilier" : "Audit patrimonial", "select", "", ["Prospect", "Coaching immobilier", ...getStages()]],
+        ["next", "Prochaine action", isProspectContext ? "Relance prévue en décembre" : isCoachingContext ? "Coaching à suivre" : "Compléter audit patrimonial", "text", "full"]
       ]
     },
     task: {
@@ -4150,6 +4315,7 @@ function createEntry(type, values) {
   if (type === "contact") {
     const preset = contactPresets[values.preset] || {};
     const isProspectEntry = activeView === "prospects" || values.status === "Prospect" || normalizeText(values.search).includes("prospect");
+    const isCoachingEntry = activeView === "coaching" || values.status === "Coaching immobilier" || normalizeText(values.search).includes("coaching");
     state.contacts.unshift({
       id: crypto.randomUUID(),
       name: contactDisplayName,
@@ -4158,7 +4324,7 @@ function createEntry(type, values) {
       email: values.email,
       phone: values.phone,
       source: values.source,
-      type: isProspectEntry ? "Prospect" : "Client",
+      type: isCoachingEntry ? "Coaching" : isProspectEntry ? "Prospect" : "Client",
       search: values.search,
       patrimoine: values.patrimoine,
       apport: Number(values.apport),
@@ -4259,7 +4425,7 @@ document.querySelector("#caYearFilter")?.addEventListener("change", (event) => {
 });
 document.querySelector("#quickAdd").addEventListener("click", () => {
   if (activeView === "tasks") editingTaskId = null;
-  openModal(activeView === "contacts" || activeView === "prospects" ? "contact" : activeView === "tasks" ? "task" : activeView === "pipeline" ? "deal" : "property");
+  openModal(activeView === "contacts" || activeView === "prospects" || activeView === "coaching" ? "contact" : activeView === "tasks" ? "task" : activeView === "pipeline" ? "deal" : "property");
 });
 document.querySelector("#dashboardAddContact")?.addEventListener("click", () => openModal("contact"));
 document.querySelector("#addProperty").addEventListener("click", () => openModal("property"));
@@ -4276,6 +4442,12 @@ document.querySelector("#prospectGrid")?.addEventListener("click", (event) => {
   }
   const decemberButton = event.target.closest("[data-december-prospect]");
   if (decemberButton) addDecemberProspectRelance(decemberButton.dataset.decemberProspect);
+});
+document.querySelector("#coachingGrid")?.addEventListener("click", (event) => {
+  const openButton = event.target.closest("[data-open-coaching]");
+  if (!openButton) return;
+  openContactDrawer(openButton.dataset.openCoaching);
+  setDrawerTab("coaching");
 });
 document.querySelector("#addGanttTask")?.addEventListener("click", () => {
   editingTaskId = null;

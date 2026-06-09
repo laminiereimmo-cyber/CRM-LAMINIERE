@@ -45,6 +45,10 @@
             <span data-icon="user-plus"></span>
             Prospects
           </button>
+          <button class="nav-item" data-view="coaching" type="button">
+            <span data-icon="target"></span>
+            Coaching
+          </button>
           <button class="nav-item" data-view="analysis" type="button">
             <span data-icon="search-check"></span>
             Analyse
@@ -327,6 +331,16 @@
             </div>
           </div>
           <div class="prospect-grid" id="prospectGrid"></div>
+        </section>
+
+        <section class="view" id="coaching" aria-label="Coaching immobilier">
+          <div class="section-toolbar">
+            <div>
+              <p class="eyebrow">Coaching immobilier</p>
+              <h2>Analyses ponctuelles et coaching payés</h2>
+            </div>
+          </div>
+          <div class="prospect-grid" id="coachingGrid"></div>
         </section>
         <section class="view" id="analysis" aria-label="Analyse adresse">
           <div class="section-toolbar">
@@ -699,6 +713,7 @@
           <button class="drawer-tab active" data-drawer-tab="summary" type="button">Synthèse</button>
           <button class="drawer-tab" data-drawer-tab="timeline" type="button">Timeline</button>
           <button class="drawer-tab" data-drawer-tab="audit" type="button">Audit 3k</button>
+          <button class="drawer-tab" data-drawer-tab="coaching" type="button">Coaching</button>
           <button class="drawer-tab" data-drawer-tab="mandate" type="button">Mandat</button>
           <button class="drawer-tab" data-drawer-tab="gvh" type="button">Hunb'up</button>
           <button class="drawer-tab" data-drawer-tab="emails" type="button">Emails</button>
@@ -715,6 +730,10 @@
           <div class="drawer-section" data-section="audit">
             <div class="drawer-grid" id="auditFields"></div>
             <div class="doc-zone" id="auditDocs"></div>
+          </div>
+          <div class="drawer-section" data-section="coaching">
+            <div class="drawer-grid" id="coachingFields"></div>
+            <div class="mandate-projects" id="coachingProjects"></div>
           </div>
           <div class="drawer-section" data-section="mandate">
             <div class="drawer-grid" id="mandateFields"></div>
