@@ -891,6 +891,16 @@ h2 {
   background: #f7faf7;
 }
 
+.task-list .task-item {
+  border: 1px solid rgba(12, 122, 105, 0.22);
+  border-left: 5px solid var(--accent);
+  background: #fbfefb;
+}
+
+.task-list .task-item:first-child {
+  box-shadow: 0 14px 34px rgba(23, 33, 31, 0.1);
+}
+
 .task-card {
   grid-template-columns: auto minmax(0, 1fr) auto;
   border: 1px solid var(--line);
@@ -1479,6 +1489,32 @@ tbody tr[data-contact-id]:hover {
   overflow: auto;
 }
 
+.forecast-client-group {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f7fbf8;
+}
+
+.forecast-client-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.forecast-client-head strong {
+  font-size: 1.05rem;
+}
+
+.forecast-client-head small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+}
+
 .forecast-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -1491,6 +1527,12 @@ tbody tr[data-contact-id]:hover {
   color: var(--ink);
   background: #fff;
   text-align: left;
+}
+
+.forecast-row-child {
+  margin-left: 14px;
+  width: calc(100% - 14px);
+  background: #fff;
 }
 
 .forecast-row:hover,

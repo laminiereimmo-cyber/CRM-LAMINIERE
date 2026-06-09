@@ -4,7 +4,7 @@ const STORE_VERSION_KEY = "laminiere-crm-version";
 const CLOUD_CONFIG_KEY = "laminiere-crm-cloud-config";
 const CLOUD_META_KEY = "laminiere-crm-cloud-meta";
 const LOCAL_UPDATED_KEY = "laminiere-crm-local-updated-at";
-const APP_VERSION = "0.20.1";
+const APP_VERSION = "0.20.2";
 const REVENUE_TARGETS_HT = {
   2026: 100800,
   2027: null
@@ -1377,6 +1377,10 @@ function revenueTargetForYear(year = selectedRevenueYear) {
   return REVENUE_TARGETS_HT[String(year)] ?? null;
 }
 
+function clientRevenueName(row) {
+  return normalizeText(row.client || row.title || "Client") || "client";
+}
+
 function revenueForecastRows() {
   return activeDeals()
     .filter((deal) => Number(deal.value || 0) > 0)
@@ -1398,8 +1402,31 @@ function revenueForecastRows() {
     });
 }
 
+function groupedRevenueForecastRows(rows) {
+  return Object.values(
+    rows.reduce((groups, row) => {
+      const key = clientRevenueName(row);
+      if (!groups[key]) {
+        groups[key] = {
+          client: row.client || "Client",
+          total: 0,
+          realized: 0,
+          pending: 0,
+          rows: []
+        };
+      }
+      groups[key].total += row.value;
+      if (row.status === "Réalisé / encaissé") groups[key].realized += row.value;
+      else groups[key].pending += row.value;
+      groups[key].rows.push(row);
+      return groups;
+    }, {})
+  ).sort((a, b) => b.total - a.total);
+}
+
 function openRevenueForecastModal() {
   const rows = revenueForecastRows();
+  const groupedRows = groupedRevenueForecastRows(rows);
   const total = rows.reduce((sum, row) => sum + row.value, 0);
   const revenueTarget = revenueTargetForYear(selectedRevenueYear);
   const progress = revenueTarget ? Math.min(100, Math.round((total / revenueTarget) * 100)) : null;
@@ -1414,19 +1441,34 @@ function openRevenueForecastModal() {
     <div><span>En cours</span><strong>${formatExactMoney(pending)} HT</strong></div>
   `;
   document.querySelector("#revenueForecastRows").innerHTML =
-    rows
+    groupedRows
       .map(
-        (row) => `
-          <button class="forecast-row" type="button" data-open-revenue-deal="${row.id}">
-            <span>
-              <strong>${htmlEscape(row.client)}</strong>
-              <small>${htmlEscape(row.kind)} · ${htmlEscape(row.stage)} · ${htmlEscape(row.detail)}</small>
-            </span>
-            <span class="forecast-row-right">
-              <em>${row.status}</em>
-              <strong>${formatExactMoney(row.value)} HT</strong>
-            </span>
-          </button>
+        (group) => `
+          <section class="forecast-client-group">
+            <div class="forecast-client-head">
+              <span>
+                <strong>${htmlEscape(group.client)}</strong>
+                <small>${group.rows.length} ligne${group.rows.length > 1 ? "s" : ""} · encaissé ${formatExactMoney(group.realized)} HT · en cours ${formatExactMoney(group.pending)} HT</small>
+              </span>
+              <strong>${formatExactMoney(group.total)} HT</strong>
+            </div>
+            ${group.rows
+              .map(
+                (row) => `
+                  <button class="forecast-row forecast-row-child" type="button" data-open-revenue-deal="${row.id}">
+                    <span>
+                      <strong>${htmlEscape(row.kind)}</strong>
+                      <small>${htmlEscape(row.stage)} · ${htmlEscape(row.detail)}</small>
+                    </span>
+                    <span class="forecast-row-right">
+                      <em>${row.status}</em>
+                      <strong>${formatExactMoney(row.value)} HT</strong>
+                    </span>
+                  </button>
+                `
+              )
+              .join("")}
+          </section>
         `
       )
       .join("") || emptyState("Aucun montant comptabilisé sur cette année.");
@@ -1464,10 +1506,12 @@ function renderDashboard() {
     .join("");
 
   document.querySelector("#dashboardTasks").innerHTML = state.tasks
+    .map(ensureTaskDefaults)
     .filter((task) => !task.done)
-    .slice(0, 4)
+    .sort((a, b) => taskUrgencyRank(a) - taskUrgencyRank(b))
+    .slice(0, 6)
     .map(taskTemplate)
-    .join("");
+    .join("") || emptyState("Aucune relance ouverte.");
 
   document.querySelector("#featuredProperties").innerHTML = state.properties.slice(0, 3).map(propertyTemplate).join("");
   renderBusinessInsights();
@@ -1671,11 +1715,24 @@ function renderContacts() {
 
 function isProspect(contact) {
   ensureContactDefaults(contact);
-  return contact.type === "Prospect" || contact.status === "Prospect";
+  const haystack = normalizeText([contact.type, contact.status, contact.search, contact.patrimoine, contact.target, contact.next].join(" "));
+  return contact.type === "Prospect" || contact.status === "Prospect" || haystack.includes("prospect");
 }
 
 function prospectRelances(contact) {
   return state.tasks.map(ensureTaskDefaults).filter((task) => task.clientId === contact.id && !task.done);
+}
+
+function taskUrgencyRank(task) {
+  const due = normalizeText(task.due);
+  if (due.includes("aujourd")) return 0;
+  if (due.includes("demain")) return 1;
+  if (due.includes("cette semaine") || due.includes("semaine")) return 2;
+  if (due.includes("decembre")) return 8;
+  if (due.includes("janvier")) return 9;
+  const year = yearFromDate(task.due);
+  if (year) return Number(year) * 100;
+  return 5;
 }
 
 function renderProspects() {
@@ -3864,15 +3921,15 @@ function openModal(type) {
       ]
     },
     contact: {
-      title: "Nouveau contact",
+      title: isProspectContext ? "Nouveau prospect" : "Nouveau contact",
       fields: [
-        ["preset", "Modèle", "mandate", "select", "", Object.entries(contactPresets).map(([value, preset]) => [value, preset.label])],
+        ["preset", "Modèle", isProspectContext ? "audit" : "mandate", "select", "", Object.entries(contactPresets).map(([value, preset]) => [value, preset.label])],
         ["name", "Nom", "Dubois"],
         ["firstName", "Prénom", "Claire"],
         ["email", "Email", "claire@email.fr"],
         ["phone", "Téléphone", "06..."],
-        ["source", "Source", "CJ", "select", "", ["CJ", "Recommandation", "Instagram", "LinkedIn", "Site web", "Evenement", "Client existant", "Partenaire", "Autre"]],
-        ["search", "Projet", "Petit immeuble ancien de rapport", "text", "full"],
+        ["source", "Source", isProspectContext ? "Recommandation" : "CJ", "select", "", ["CJ", "Recommandation", "Instagram", "LinkedIn", "Site web", "Evenement", "Client existant", "Partenaire", "Autre"]],
+        ["search", "Projet", isProspectContext ? "Prospect à qualifier" : "Petit immeuble ancien de rapport", "text", "full"],
         ["patrimoine", "Situation patrimoniale", "À auditer", "text", "full"],
         ["apport", "Apport", "30000", "number"],
         ["capacite", "Capacité bancaire", "220000", "number"],
@@ -3881,8 +3938,8 @@ function openModal(type) {
         ["sector", "Secteur", "Ville / zone"],
         ["priority", "Priorité", "Normale", "select", "", ["Basse", "Normale", "Moyenne", "Haute"]],
         ["owner", "Responsable", "Gabriel Valette", "select", "", ["Gabriel Valette", "Anais Vergnon Valette", "LaMinière", "Hunb'up", "Partenaire"]],
-        ["status", "Étape", "Audit patrimonial", "select", "", getStages()],
-        ["next", "Prochaine action", "Compléter audit patrimonial", "text", "full"]
+        ["status", "Étape", isProspectContext ? "Prospect" : "Audit patrimonial", "select", "", ["Prospect", ...getStages()]],
+        ["next", "Prochaine action", isProspectContext ? "Relance prévue en décembre" : "Compléter audit patrimonial", "text", "full"]
       ]
     },
     task: {
@@ -3988,6 +4045,7 @@ function createEntry(type, values) {
 
   if (type === "contact") {
     const preset = contactPresets[values.preset] || {};
+    const isProspectEntry = activeView === "prospects" || values.status === "Prospect" || normalizeText(values.search).includes("prospect");
     state.contacts.unshift({
       id: crypto.randomUUID(),
       name: contactDisplayName,
@@ -3996,7 +4054,7 @@ function createEntry(type, values) {
       email: values.email,
       phone: values.phone,
       source: values.source,
-      type: "Client",
+      type: isProspectEntry ? "Prospect" : "Client",
       search: values.search,
       patrimoine: values.patrimoine,
       apport: Number(values.apport),
@@ -4102,7 +4160,6 @@ document.querySelector("#quickAdd").addEventListener("click", () => {
 document.querySelector("#dashboardAddContact")?.addEventListener("click", () => openModal("contact"));
 document.querySelector("#addProperty").addEventListener("click", () => openModal("property"));
 document.querySelector("#addContact").addEventListener("click", () => openModal("contact"));
-document.querySelector("#addProspect")?.addEventListener("click", () => openModal("contact"));
 document.querySelector("#addTask").addEventListener("click", () => {
   editingTaskId = null;
   openModal("task");
