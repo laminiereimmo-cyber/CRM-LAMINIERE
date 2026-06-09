@@ -4,7 +4,7 @@ const STORE_VERSION_KEY = "laminiere-crm-version";
 const CLOUD_CONFIG_KEY = "laminiere-crm-cloud-config";
 const CLOUD_META_KEY = "laminiere-crm-cloud-meta";
 const LOCAL_UPDATED_KEY = "laminiere-crm-local-updated-at";
-const APP_VERSION = "0.20.7";
+const APP_VERSION = "0.20.8";
 const REVENUE_TARGETS_HT = {
   2026: 100800,
   2027: null
@@ -568,7 +568,8 @@ function migrateRevenueState(data) {
       projects: knownProjectsForContact("Jonathan COHEN")
     },
     {
-      name: "Pauline et Adrien",
+      name: "Pauline GLAIZE & Adrien CARDONNA",
+      aliases: ["Pauline et Adrien", "Adrien CARDONNA Pauline GLAIZE", "Pauline GLAIZE Adrien CARDONNA"],
       id: "c-rev-pauline-adrien",
       source: "LaMinière",
       status: "Banque",
@@ -704,8 +705,10 @@ function migrateRevenueState(data) {
   revenueSpecs.forEach((spec) => {
     const normalizedNames = [spec.name, ...(spec.aliases || [])].map(normalizeText);
     const matchingContacts = data.contacts.filter((item) => normalizedNames.includes(normalizeText(item.name)));
-    let contact = matchingContacts[0];
-    matchingContacts.slice(1).forEach((duplicate) => {
+    let contact =
+      matchingContacts.find((item) => normalizeText(item.name).includes("glaize") || normalizeText(item.name).includes("cardonna") || normalizeText(item.name).includes("cavalier") || normalizeText(item.name).includes("declerck")) ||
+      matchingContacts[0];
+    matchingContacts.filter((item) => item !== contact).forEach((duplicate) => {
       duplicate.archivedAt = duplicate.archivedAt || new Date().toISOString();
     });
     if (!contact) {
@@ -1531,8 +1534,8 @@ function revenueTargetForYear(year = selectedRevenueYear) {
   return REVENUE_TARGETS_HT[String(year)] ?? null;
 }
 
-function clientRevenueName(row) {
-  return normalizeText(row.client || row.title || "Client") || "client";
+function clientRevenueKey(row) {
+  return row.contactId || normalizeText(row.client || row.title || "Client") || "client";
 }
 
 function revenueForecastRows() {
@@ -1546,6 +1549,7 @@ function revenueForecastRows() {
       const realized = deal.auditDeal || ["Acquisition", "Travaux", "Ameublement", "Location", "Bascule Hunb'up"].includes(deal.stage) || dueStatus.includes("paye") || dueStatus.includes("realise") || dueStatus.includes("encaisse") || dueStatus.includes("regle");
       return {
         id: deal.id,
+        contactId: deal.contactId || contact?.id || "",
         title: deal.title || contact?.name || "Dossier",
         client: contact?.name || deal.title || "Client",
         detail: deal.contact || deal.due || deal.stage || "",
@@ -1560,7 +1564,7 @@ function revenueForecastRows() {
 function groupedRevenueForecastRows(rows) {
   return Object.values(
     rows.reduce((groups, row) => {
-      const key = clientRevenueName(row);
+      const key = clientRevenueKey(row);
       if (!groups[key]) {
         groups[key] = {
           client: row.client || "Client",

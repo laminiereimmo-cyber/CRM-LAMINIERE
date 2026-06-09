@@ -2163,17 +2163,22 @@ tbody tr[data-contact-id]:hover {
     overflow-x: auto;
     padding-bottom: 2px;
     scroll-snap-type: x proximity;
+    scrollbar-width: none;
+  }
+
+  .nav-list::-webkit-scrollbar {
+    display: none;
   }
 
   .nav-item {
-    flex: 0 0 78px;
+    flex: 0 0 72px;
     min-width: 0;
     scroll-snap-align: start;
-    min-height: 54px;
+    min-height: 50px;
     flex-direction: column;
     gap: 3px;
-    padding: 6px 4px;
-    font-size: 0.72rem;
+    padding: 5px 4px;
+    font-size: 0.68rem;
     line-height: 1.1;
   }
 
@@ -2202,8 +2207,8 @@ tbody tr[data-contact-id]:hover {
   }
 
   h1 {
-    max-width: 12ch;
-    font-size: clamp(2.25rem, 13vw, 3.55rem);
+    max-width: 11ch;
+    font-size: clamp(2rem, 11vw, 3rem);
   }
 
   .primary-button,
@@ -2239,7 +2244,7 @@ tbody tr[data-contact-id]:hover {
   .topbar-button {
     min-width: 0;
     padding: 0 8px;
-    font-size: 0.82rem;
+    font-size: 0.78rem;
   }
 
   .topbar-button,
@@ -2277,7 +2282,7 @@ tbody tr[data-contact-id]:hover {
   }
 
   .metric-card strong {
-    font-size: clamp(1.85rem, 9vw, 2.55rem);
+    font-size: clamp(1.65rem, 8vw, 2.25rem);
   }
 
   .panel {
@@ -2349,17 +2354,23 @@ tbody tr[data-contact-id]:hover {
     width: 100%;
     max-height: calc(100dvh - 24px);
     overflow: auto;
-    padding: 16px;
+    padding: 14px;
   }
 
   .client-drawer.open .drawer-panel {
     width: 100%;
     max-width: none;
+    height: 100dvh;
   }
 
   .drawer-tabs {
     overflow-x: auto;
     white-space: nowrap;
+    scrollbar-width: none;
+  }
+
+  .drawer-tabs::-webkit-scrollbar {
+    display: none;
   }
 
   .table-wrap {
@@ -2371,7 +2382,7 @@ tbody tr[data-contact-id]:hover {
   }
 
   .kanban {
-    grid-template-columns: repeat(10, minmax(238px, 78vw));
+    grid-template-columns: repeat(10, minmax(220px, 82vw));
     overflow-x: auto;
     padding-bottom: 8px;
   }
