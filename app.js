@@ -4,7 +4,7 @@ const STORE_VERSION_KEY = "laminiere-crm-version";
 const CLOUD_CONFIG_KEY = "laminiere-crm-cloud-config";
 const CLOUD_META_KEY = "laminiere-crm-cloud-meta";
 const LOCAL_UPDATED_KEY = "laminiere-crm-local-updated-at";
-const APP_VERSION = "0.20.10";
+const APP_VERSION = "0.20.12";
 const REVENUE_TARGETS_HT = {
   2026: 100800,
   2027: null
@@ -918,7 +918,7 @@ function syncContactProjectDealsInData(data, contact) {
       revenueCategory: project.revenueCategory || "Mandat / clé en main",
       missionType: project.missionType || "",
       stage: contact.status && getStages().includes(contact.status) ? contact.status : "Analyse de projet",
-      due: project.status || "En cours",
+      due: project.paymentStatus || project.status || "Non payé",
       checks: ["Mandat", "Financement", "Acte"],
       archivedAt: ""
     };
@@ -1584,7 +1584,7 @@ function revenueForecastRows() {
       const canonicalName = canonicalRevenueClientName(`${deal.title || ""} ${deal.contact || ""} ${contact?.name || ""}`);
       const kind = deal.revenueCategory || (deal.auditDeal ? "Audit" : deal.countsAsOperation === false ? "Autre revenu" : "Projet");
       const dueStatus = normalizeText(deal.due);
-      const realized = deal.auditDeal || ["Acquisition", "Travaux", "Ameublement", "Location", "Bascule Hunb'up"].includes(deal.stage) || dueStatus.includes("paye") || dueStatus.includes("realise") || dueStatus.includes("encaisse") || dueStatus.includes("regle");
+      const realized = deal.auditDeal || dueStatus === "paye" || dueStatus.includes("realise") || dueStatus.includes("encaisse") || dueStatus.includes("regle");
       return {
         id: deal.id,
         contactId: contact?.id || deal.contactId || "",
@@ -1902,6 +1902,7 @@ function renderContacts() {
           <td><span class="status">${displayText(contact.gvhStatus)}</span><br /><span class="client-mini">${contact.gvhEnvelope || "À qualifier"}</span><br /><span class="client-mini">${documentProgress(contact, "gvh")}</span></td>
           <td>${contact.next || contact.last || "À planifier"}</td>
           <td>
+            <button class="ghost-button table-action" data-merge-contact="${contact.id}" type="button">Fusionner</button>
             <button class="ghost-button table-action" data-archive-contact="${contact.id}" type="button">${isContactArchived(contact) ? "Restaurer" : "Archiver"}</button>
           </td>
         </tr>
@@ -1981,7 +1982,7 @@ function renderCoaching() {
       .map((contact) => {
         const projects = activeProjects(contact).filter((project) => project.revenueCategory === "Coaching" || normalizeText(project.source).includes("coaching") || normalizeText(project.city).includes("coaching"));
         const total = projects.reduce((sum, project) => sum + projectTotalHt(project), 0);
-        const realized = projects.filter((project) => normalizeText(project.status).includes("realise") || normalizeText(project.status).includes("encaisse")).reduce((sum, project) => sum + projectTotalHt(project), 0);
+        const realized = projects.filter((project) => normalizePaymentStatus(project.paymentStatus, project.status) === "Payé").reduce((sum, project) => sum + projectTotalHt(project), 0);
         return `
           <article class="prospect-card" data-coaching-contact-id="${contact.id}">
             <div>
@@ -2299,6 +2300,19 @@ function revenueCategoryOptions() {
   ];
 }
 
+function paymentStatusOptions() {
+  return ["Non payé", "Partiellement payé", "Payé"];
+}
+
+function normalizePaymentStatus(value, fallbackStatus = "") {
+  const normalized = normalizeText(value);
+  if (normalized.includes("partiel")) return "Partiellement payé";
+  if (normalized.includes("paye") || normalized.includes("realise") || normalized.includes("encaisse") || normalized.includes("regle")) return "Payé";
+  if (value) return value;
+  const fallback = normalizeText(fallbackStatus);
+  return fallback.includes("paye") || fallback.includes("realise") || fallback.includes("encaisse") || fallback.includes("regle") ? "Payé" : "Non payé";
+}
+
 function knownProjectsForContact(name) {
   const normalized = normalizeText(name);
   const templates = {
@@ -2340,6 +2354,7 @@ function createProject(data = {}) {
     comment: data.comment || "",
     revenueYear: String(data.revenueYear || yearFromDate(data.revenueDate) || selectedRevenueYear),
     revenueDate: data.revenueDate || "",
+    paymentStatus: normalizePaymentStatus(data.paymentStatus, data.status),
     acquisitionPrice,
     mandateRate,
     mandateFeeTtc,
@@ -2623,6 +2638,7 @@ function coachingProjectTemplate(project) {
   const fields = [
     ["city", "Mission / ville", "text"],
     ["revenueYear", "Année CA", "number"],
+    ["paymentStatus", "Paiement", "select", paymentStatusOptions()],
     ["mandateFeeTtc", "Prix TTC vu client", "number"],
     ["mandateFeeHt", "Prix HT CA", "number"],
     ["status", "Statut", "select", ["En cours", "Réalisé / encaissé", "Facturé", "À facturer"]],
@@ -2675,6 +2691,7 @@ function projectTemplate(project) {
     ["missionType", "Type mission", "text"],
     ["city", "Projet / ville", "text"],
     ["revenueYear", "Année CA", "number"],
+    ["paymentStatus", "Paiement", "select", paymentStatusOptions()],
     ["acquisitionPrice", "Prix acquisition", "number"],
     ["mandateRate", "% mandat", "number"],
     ["mandateFeeTtc", "Hono TTC", "number"],
@@ -3009,7 +3026,7 @@ function syncContactProjectDeals(contact) {
       revenueCategory: project.revenueCategory || "Mandat / clé en main",
       missionType: project.missionType || "",
       stage: contact.status && getStages().includes(contact.status) ? contact.status : "Analyse de projet",
-      due: project.status || "En cours",
+      due: project.paymentStatus || project.status || "Non payé",
       checks: ["Mandat", "Financement", "Acte"],
       archivedAt: ""
     };
@@ -3083,6 +3100,94 @@ function deleteActiveContact() {
   saveState();
   render();
   showToast("Contact supprimé définitivement.");
+}
+
+function contactMergeLabel(contact) {
+  ensureContactDefaults(contact);
+  const archived = isContactArchived(contact) ? " · archivé" : "";
+  return `${contact.name || "Sans nom"} · ${contact.source || "source ?"}${archived}`;
+}
+
+function fillMergeContactModal(defaultKeepId = "") {
+  const contacts = state.contacts.map(ensureContactDefaults).sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "fr"));
+  const options = contacts
+    .map((contact) => `<option value="${contact.id}">${htmlEscape(contactMergeLabel(contact))}</option>`)
+    .join("");
+  const keepSelect = document.querySelector("#mergeKeepContact");
+  const sourceSelect = document.querySelector("#mergeSourceContact");
+  keepSelect.innerHTML = options;
+  sourceSelect.innerHTML = options;
+  if (defaultKeepId) keepSelect.value = defaultKeepId;
+  const firstOther = contacts.find((contact) => contact.id !== keepSelect.value);
+  sourceSelect.value = firstOther?.id || "";
+}
+
+function openMergeContactModal(defaultKeepId = "") {
+  fillMergeContactModal(defaultKeepId);
+  document.querySelector("#mergeContactModal").showModal();
+}
+
+function mergeContacts(keepId, sourceId) {
+  if (!keepId || !sourceId || keepId === sourceId) {
+    showToast("Choisis deux contacts différents.");
+    return;
+  }
+  const keep = state.contacts.find((contact) => contact.id === keepId);
+  const source = state.contacts.find((contact) => contact.id === sourceId);
+  if (!keep || !source) {
+    showToast("Contact introuvable.");
+    return;
+  }
+  ensureContactDefaults(keep);
+  ensureContactDefaults(source);
+
+  const existingProjectIds = new Set((keep.projects || []).map((project) => project.id));
+  const projectIdMap = new Map();
+  (source.projects || []).forEach((project) => {
+    const oldProjectId = project.id;
+    const nextProject = ensureProjectDefaults({ ...project });
+    if (!nextProject.id || existingProjectIds.has(nextProject.id)) nextProject.id = crypto.randomUUID();
+    existingProjectIds.add(nextProject.id);
+    if (oldProjectId) projectIdMap.set(oldProjectId, nextProject.id);
+    keep.projects.push(nextProject);
+  });
+
+  const fieldsToComplete = ["email", "phone", "source", "type", "search", "patrimoine", "target", "sector", "next", "notes", "owner", "mandateStatus", "bankStatus", "notaryStatus", "gvhStatus", "gvhEnvelope", "cgpStatus", "cgpMission"];
+  fieldsToComplete.forEach((field) => {
+    if (!keep[field] || normalizeText(keep[field]).includes("renseigner") || normalizeText(keep[field]).includes("definir")) keep[field] = source[field] || keep[field];
+  });
+  ["apport", "capacite", "worksBudget", "gvhAmount"].forEach((field) => {
+    if (!Number(keep[field] || 0) && Number(source[field] || 0)) keep[field] = Number(source[field] || 0);
+  });
+  if (!isAuditRevenueRecognized(keep) && isAuditRevenueRecognized(source)) {
+    keep.auditStatus = source.auditStatus;
+    keep.auditFee = source.auditFee;
+    keep.auditPaidDate = source.auditPaidDate;
+    keep.auditPaidYear = source.auditPaidYear;
+  }
+
+  state.deals.forEach((deal) => {
+    if (deal.contactId === source.id) {
+      deal.contactId = keep.id;
+      if (deal.projectId && projectIdMap.has(deal.projectId)) deal.projectId = projectIdMap.get(deal.projectId);
+    }
+  });
+  state.tasks.forEach((task) => {
+    if (task.clientId === source.id) task.clientId = keep.id;
+    if (task.contactId === source.id) task.contactId = keep.id;
+  });
+
+  source.projects = [];
+  source.archivedAt = source.archivedAt || new Date().toISOString();
+  source.status = "Archivé";
+  source.next = `Fusionné avec ${keep.name}`;
+
+  syncContactProjectDeals(keep);
+  archiveDuplicateGeneratedDeals(state);
+  saveState();
+  render();
+  openContactDrawer(keep.id);
+  showToast(`Fusion terminée : ${source.name} est rattaché à ${keep.name}.`);
 }
 
 function setDrawerTab(tab) {
@@ -4785,6 +4890,12 @@ document.querySelectorAll("[data-property-filter]").forEach((button) => {
 });
 
 document.querySelector("#contactsTable").addEventListener("click", (event) => {
+  const mergeButton = event.target.closest("[data-merge-contact]");
+  if (mergeButton) {
+    event.stopPropagation();
+    openMergeContactModal(mergeButton.dataset.mergeContact);
+    return;
+  }
   const archiveButton = event.target.closest("[data-archive-contact]");
   if (archiveButton) {
     event.stopPropagation();
@@ -4794,6 +4905,16 @@ document.querySelector("#contactsTable").addEventListener("click", (event) => {
   const row = event.target.closest("[data-contact-id]");
   if (!row) return;
   openContactDrawer(row.dataset.contactId);
+});
+
+document.querySelector("#mergeContactForm")?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  if (event.submitter?.value === "cancel") {
+    document.querySelector("#mergeContactModal").close();
+    return;
+  }
+  mergeContacts(document.querySelector("#mergeKeepContact").value, document.querySelector("#mergeSourceContact").value);
+  document.querySelector("#mergeContactModal").close();
 });
 
 document.querySelector("#blockerList").addEventListener("click", (event) => {
