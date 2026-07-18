@@ -2219,7 +2219,7 @@ tbody tr[data-contact-id]:hover {
   }
 
   .main {
-    padding: calc(14px + env(safe-area-inset-top)) 12px 14px;
+    padding: max(50px, calc(14px + env(safe-area-inset-top))) 12px 14px;
   }
 
   .topbar,
@@ -2449,7 +2449,7 @@ tbody tr[data-contact-id]:hover {
 
 @media (max-width: 420px) {
   .main {
-    padding: calc(10px + env(safe-area-inset-top)) 10px 10px;
+    padding: max(46px, calc(10px + env(safe-area-inset-top))) 10px 10px;
   }
 
   h1 {
