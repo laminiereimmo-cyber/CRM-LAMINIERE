@@ -3316,8 +3316,10 @@ function taskTemplate(task) {
   ensureTaskDefaults(task);
   const client = findTaskClient(task);
   const priorityClass = task.priority === "Haute" ? "priority-high" : task.priority === "Basse" ? "priority-low" : "";
+  const urgencyRank = taskUrgencyRank(task);
+  const urgencyClass = task.done ? "" : urgencyRank === 0 ? "task-due-today" : urgencyRank === 1 ? "task-due-soon" : "";
   return `
-    <article class="task-item ${task.done ? "task-done" : ""}">
+    <article class="task-item ${task.done ? "task-done" : ""} ${urgencyClass}">
       <button class="check ${task.done ? "done" : ""}" data-toggle-task="${task.id}" type="button" title="Basculer la tache">
         ${task.done ? '<span data-icon="check"></span>' : ""}
       </button>

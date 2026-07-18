@@ -945,6 +945,17 @@ h2 {
   color: var(--muted);
 }
 
+.task-list .task-item.task-due-today,
+.task-card.task-due-today {
+  border-left-color: var(--rose);
+  background: #fbf1f2;
+}
+
+.task-list .task-item.task-due-soon,
+.task-card.task-due-soon {
+  border-left-color: var(--gold);
+}
+
 .business-row,
 .advisor-row,
 .blocker-row {
