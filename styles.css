@@ -2030,7 +2030,8 @@ tbody tr[data-contact-id]:hover {
   gap: 6px;
 }
 
-.field.full {
+.field.full,
+.works-estimator.full {
   grid-column: 1 / -1;
 }
 
