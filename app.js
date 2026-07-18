@@ -4532,7 +4532,10 @@ function openModal(type) {
         ["contactId", "Client lié", "", "select", "full", [["", "Choisir un client"], ...activeContacts().map((contact) => [contact.id, contact.name])]],
         ["title", "Nom opération", "Nouvelle opération"],
         ["stage", "Étape", "Audit patrimonial", "select", "", getStages()],
-        ["value", "Objectif CA", "4500", "number"],
+        ["value", "Objectif CA (si pas de calcul auto ci-dessous)", "4500", "number"],
+        ["acquisitionPrice", "Prix d'acquisition (commission 7% auto)", "", "number"],
+        ["travauxMontantTTC", "Montant travaux TTC (commission 7% auto)", "", "number"],
+        ["artisanFacturesHT", "Factures/devis artisans HT (marge 5% auto)", "", "number"],
         ["contact", "Objet", "Mandat de recherche / accompagnement", "text", "full"],
         ["due", "Échéance", "Cette semaine"],
         ["checks", "Points à suivre", "Objectif, Revenus, Apport", "text", "full"]
@@ -4707,7 +4710,10 @@ function createEntry(type, values) {
       contactId: values.contactId,
       title: values.title || linkedContact?.name || "Nouvelle opération",
       contact: values.contact || linkedContact?.search || "Objectif en cours",
-      value: Number(values.value || 0),
+      value: (Number(values.acquisitionPrice || 0) * 0.07 + Number(values.travauxMontantTTC || 0) * 0.07 + Number(values.artisanFacturesHT || 0) * 0.05) || Number(values.value || 0),
+      acquisitionPrice: Number(values.acquisitionPrice || 0),
+      travauxMontantTTC: Number(values.travauxMontantTTC || 0),
+      artisanFacturesHT: Number(values.artisanFacturesHT || 0),
       stage: values.stage,
       due: values.due,
       checks: String(values.checks || "")
