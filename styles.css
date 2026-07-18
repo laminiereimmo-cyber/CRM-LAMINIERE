@@ -1596,6 +1596,7 @@ tbody tr[data-contact-id]:hover {
   color: #fff;
   background: #10201d;
   box-shadow: var(--shadow);
+  white-space: pre-line;
   opacity: 0;
   transform: translateY(10px);
   pointer-events: none;

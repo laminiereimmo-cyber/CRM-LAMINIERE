@@ -1799,7 +1799,7 @@ function renderClientControlGrid() {
                 <strong>${htmlEscape(contact.name)}</strong>
                 <small>${htmlEscape(contact.status)} · ${htmlEscape(contact.next || "À planifier")}</small>
               </span>
-              <em title="${htmlEscape(clientScoreTooltip(contact))}">${clientScore(contact)}/100</em>
+              <em title="${htmlEscape(clientScoreTooltip(contact))}" data-score-info="${contact.id}">${clientScore(contact)}/100</em>
             </button>
           `
         )
@@ -1931,7 +1931,7 @@ function renderContacts() {
             ${isContactArchived(contact) ? '<br /><span class="status muted-status">Archivé</span>' : ""}
           </td>
           <td>${htmlEscape(contact.source || "Source ?")}<br /><span class="client-mini">${htmlEscape(contact.owner || "Responsable ?")}</span></td>
-          <td>${contact.search}<br /><span class="client-mini">${contact.target || "Cible à définir"} · ${contact.sector || "Secteur ?"}</span><br /><span class="score-pill" title="${htmlEscape(clientScoreTooltip(contact))}">${clientScore(contact)}/100</span></td>
+          <td>${contact.search}<br /><span class="client-mini">${contact.target || "Cible à définir"} · ${contact.sector || "Secteur ?"}</span><br /><span class="score-pill" title="${htmlEscape(clientScoreTooltip(contact))}" data-score-info="${contact.id}">${clientScore(contact)}/100</span></td>
           <td><span class="status">${displayText(contact.auditStatus)}</span><br /><span class="money-pill">${formatMoney(contact.auditFee)}</span><br /><span class="client-mini">${documentProgress(contact, "audit")}</span></td>
           <td><span class="status">${displayText(contact.mandateStatus)}</span><br /><span class="client-mini">Banque: ${displayText(contact.bankStatus)}</span><br /><span class="client-mini">${documentProgress(contact, "bank")} banque</span></td>
           <td><span class="status">${displayText(contact.gvhStatus)}</span><br /><span class="client-mini">${contact.gvhEnvelope || "À qualifier"}</span><br /><span class="client-mini">${documentProgress(contact, "gvh")}</span></td>
@@ -3451,12 +3451,12 @@ function openCloudSyncModal() {
   document.querySelector("#cloudModal").showModal();
 }
 
-function showToast(message) {
+function showToast(message, duration = 2600) {
   const toast = document.querySelector("#toast");
   toast.textContent = message;
   toast.classList.add("show");
   window.clearTimeout(showToast.timer);
-  showToast.timer = window.setTimeout(() => toast.classList.remove("show"), 2600);
+  showToast.timer = window.setTimeout(() => toast.classList.remove("show"), duration);
 }
 
 function getCloudConfig() {
@@ -4988,6 +4988,13 @@ document.querySelector("#contactsTable").addEventListener("click", (event) => {
     toggleContactArchive(archiveButton.dataset.archiveContact);
     return;
   }
+  const scoreInfo = event.target.closest("[data-score-info]");
+  if (scoreInfo) {
+    event.stopPropagation();
+    const scoreContact = state.contacts.find((item) => item.id === scoreInfo.dataset.scoreInfo);
+    if (scoreContact) showToast(clientScoreTooltip(scoreContact), 6000);
+    return;
+  }
   const row = event.target.closest("[data-contact-id]");
   if (!row) return;
   openContactDrawer(row.dataset.contactId);
@@ -5150,6 +5157,13 @@ document.addEventListener("click", (event) => {
       showToast("Complète l'analyse puis clique Dossier bancaire.");
     }
     if (type === "website") window.open("https://laminiere.fr/", "_blank", "noopener");
+    return;
+  }
+
+  const scoreInfo = event.target.closest("[data-score-info]");
+  if (scoreInfo) {
+    const scoreContact = state.contacts.find((item) => item.id === scoreInfo.dataset.scoreInfo);
+    if (scoreContact) showToast(clientScoreTooltip(scoreContact), 6000);
     return;
   }
 
