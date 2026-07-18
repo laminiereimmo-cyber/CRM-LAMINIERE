@@ -1309,6 +1309,7 @@ h2 {
 }
 
 .section-toolbar {
+  flex-wrap: wrap;
   margin-bottom: 16px;
 }
 
