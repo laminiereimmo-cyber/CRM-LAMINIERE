@@ -4272,13 +4272,12 @@ function printClientFiche() {
         <style>
           body{margin:0;padding:28px;background:#f5f8f3;color:#16211e;font-family:Arial,Helvetica,sans-serif}
           .sheet{max-width:760px;margin:0 auto;background:#fff;border:1px solid #dce4dd;border-radius:12px;overflow:hidden}
-          .cover{padding:34px 40px 28px;background:#07594d;color:#fff}
-          .cover .brand{display:flex;align-items:center;gap:10px;margin-bottom:18px}
-          .cover .brand img{height:34px;display:block}
-          .cover .brand span{font-size:12px;font-weight:700;letter-spacing:.03em;color:rgba(255,255,255,.85)}
-          .cover .eyebrow{font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:rgba(255,255,255,.65);margin:0 0 6px}
-          .cover h1{font-size:28px;margin:0 0 8px}
-          .cover .sub{font-size:13px;color:rgba(255,255,255,.8);margin:0}
+          .cover{padding:32px 40px 26px;background:#fff;border-bottom:4px solid #0c7a69}
+          .cover .brand{margin-bottom:20px}
+          .cover .brand img{height:64px;display:block}
+          .cover .eyebrow{font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#07594d;margin:0 0 6px}
+          .cover h1{font-size:28px;margin:0 0 8px;color:#16211e}
+          .cover .sub{font-size:13px;color:#5c6b64;margin:0}
           .body{padding:26px 40px 30px}
           .kpi-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:26px}
           .kpi{background:#f5f8f3;border:1px solid #dce4dd;border-radius:10px;padding:12px 14px}
@@ -4306,7 +4305,7 @@ function printClientFiche() {
       <body>
         <div class="sheet">
           <div class="cover">
-            <div class="brand"><img src="${LAMINIERE_LOGO_DATA_URL}" alt="LaMinière"><span>LAMINIÈRE · ACCOMPAGNEMENT INVESTISSEUR</span></div>
+            <div class="brand"><img src="${LAMINIERE_LOGO_DATA_URL}" alt="LaMinière"></div>
             <p class="eyebrow">Fiche de présentation</p>
             <h1>${htmlEscape(projectType || asset)} — ${htmlEscape(city || address)}</h1>
             <p class="sub">Préparé pour ${htmlEscape(clientName)} · ${preparedDate}</p>
