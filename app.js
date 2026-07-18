@@ -1562,13 +1562,16 @@ function renderMetrics() {
   const openTasks = state.tasks.filter((task) => !task.done).length;
   const gvhReady = deals.filter((deal) => deal.stage === "Bascule Hunb'up").length;
 
+  const revenueArcPct = revenueTarget ? targetProgress : 100;
+  const revenueArcCircumference = 2 * Math.PI * 16;
+  const revenueArcOffset = revenueArcCircumference * (1 - revenueArcPct / 100);
   const metrics = [
     {
       label: `CA prévisionnel ${selectedRevenueYear}`,
       value: `${formatExactMoney(offerValue)} HT`,
       note: `${projectDeals.length} projets actifs · ${targetNote}`,
       action: "revenue-forecast",
-      extra: `<div class="metric-progress" aria-label="${progressText}"><span style="width:${revenueTarget ? targetProgress : 100}%"></span></div><small>${progressText}</small>`
+      extra: `<div class="metric-arc-wrap" aria-label="${progressText}"><svg width="40" height="40" viewBox="0 0 40 40" class="metric-arc"><circle cx="20" cy="20" r="16" fill="none" stroke="var(--line)" stroke-width="5"/><circle cx="20" cy="20" r="16" fill="none" stroke="var(--accent)" stroke-width="5" stroke-linecap="round" stroke-dasharray="${revenueArcCircumference}" stroke-dashoffset="${revenueArcOffset}" transform="rotate(-90 20 20)"/></svg><small>${progressText}</small></div>`
     },
     { label: "Clients actifs", value: hotContacts, note: "Prospects et opérations LaMinière" },
     { label: "Relances ouvertes", value: openTasks, note: "À traiter cette semaine" },

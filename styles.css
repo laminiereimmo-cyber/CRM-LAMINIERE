@@ -246,6 +246,7 @@ button {
   color: var(--accent);
   font-size: 0.74rem;
   font-weight: 800;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
@@ -258,6 +259,8 @@ p {
 
 h1 {
   margin-bottom: 0;
+  font-family: "Fraunces", serif;
+  font-weight: 500;
   font-size: clamp(2rem, 3.2vw, 3.35rem);
   line-height: 1.08;
   letter-spacing: 0;
@@ -265,7 +268,9 @@ h1 {
 
 h2 {
   margin-bottom: 0;
-  font-size: 1.1rem;
+  font-family: "Fraunces", serif;
+  font-weight: 500;
+  font-size: 1.15rem;
 }
 
 .topbar-actions {
@@ -497,6 +502,8 @@ h2 {
 .metric-card strong {
   display: block;
   margin: 10px 0 4px;
+  font-family: "Fraunces", serif;
+  font-weight: 500;
   font-size: clamp(1.55rem, 2.5vw, 2rem);
   line-height: 1.08;
 }
@@ -514,19 +521,23 @@ h2 {
   font-weight: 700;
 }
 
-.metric-progress {
-  height: 7px;
+.metric-arc-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   margin-top: 12px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: #e5eeea;
 }
 
-.metric-progress span {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: var(--accent);
+.metric-arc {
+  flex: none;
+}
+
+.metric-arc circle {
+  transition: stroke-dashoffset 0.3s ease;
+}
+
+.metric-arc-wrap small {
+  margin-top: 0;
 }
 
 .kpi-panel {
