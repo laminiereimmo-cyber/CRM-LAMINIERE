@@ -4264,12 +4264,7 @@ function printClientFiche() {
       ? "Un projet dans une fourchette de rendement raisonnable, à sécuriser sur le prix et les travaux avant engagement."
       : "Un dossier à retravailler sur le prix, les travaux ou le loyer avant de le présenter en financement.";
   const preparedDate = new Date().toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
-  const printable = window.open("", "_blank", "width=900,height=1100");
-  if (!printable) {
-    showToast("Autorise les pop-ups pour générer la fiche client.");
-    return;
-  }
-  printable.document.write(`
+  const html = `
     <html>
       <head>
         <meta charset="utf-8">
@@ -4369,8 +4364,9 @@ function printClientFiche() {
         <script>window.onload = () => { window.print(); };</script>
       </body>
     </html>
-  `);
-  printable.document.close();
+  `;
+  downloadTextFile(`fiche-client-${safeFilename(address || projectType || "bien")}.html`, html, "text/html");
+  showToast("Fiche client telechargee. Ouvre le fichier pour impression ou enregistrement en PDF.");
 }
 
 function createClientFromAnalysis() {
