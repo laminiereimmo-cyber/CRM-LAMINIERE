@@ -518,43 +518,47 @@ h2 {
 
 .kpi-chart-wrap {
   display: grid;
-  grid-template-columns: 170px 1fr;
-  gap: 18px;
-  align-items: center;
+  grid-template-columns: 1fr;
   margin-top: 16px;
 }
 
-.pie-chart {
-  width: 160px;
-  height: 160px;
-  border-radius: 50%;
-  background: conic-gradient(var(--accent) 0 100%);
-  box-shadow: inset 0 0 0 22px #fff, 0 12px 30px rgba(23, 33, 31, 0.12);
+.funnel-chart {
+  display: grid;
+  gap: 10px;
 }
 
-.pie-legend {
+.funnel-row {
   display: grid;
-  gap: 8px;
-}
-
-.legend-row {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  gap: 8px;
+  grid-template-columns: minmax(90px, 160px) 1fr auto;
   align-items: center;
-  color: var(--muted);
+  gap: 12px;
+}
+
+.funnel-row strong {
   font-size: 0.86rem;
-}
-
-.legend-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--legend-color);
-}
-
-.legend-row strong {
   color: var(--ink);
+}
+
+.funnel-track {
+  height: 20px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.funnel-fill {
+  height: 100%;
+  border-radius: 5px;
+  background: var(--accent);
+}
+
+.funnel-row span {
+  min-width: 58px;
+  text-align: right;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
 }
 
 .split-grid {
@@ -993,6 +997,27 @@ h2 {
   background: var(--accent);
   font-size: 0.82rem;
   font-weight: 900;
+}
+
+.score-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 6px;
+  border: 1.5px solid rgba(255, 255, 255, 0.85);
+}
+
+.score-dot.score-good {
+  background: var(--accent);
+}
+
+.score-dot.score-mid {
+  background: var(--gold);
+}
+
+.score-dot.score-low {
+  background: #8f2f2f;
 }
 
 .check {
@@ -2345,13 +2370,8 @@ tbody tr[data-contact-id]:hover {
     min-height: auto;
   }
 
-  .kpi-chart-wrap {
-    justify-items: center;
-  }
-
-  .pie-chart {
-    width: min(150px, 46vw);
-    height: min(150px, 46vw);
+  .funnel-row {
+    grid-template-columns: minmax(70px, 110px) 1fr auto;
   }
 
   .forecast-row {

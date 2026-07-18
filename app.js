@@ -1491,36 +1491,26 @@ function estimateRentalTension(address, asset, rentPerSqm) {
 }
 
 function renderStagePie() {
-  const pie = document.querySelector("#stagePie");
-  const legend = document.querySelector("#stageLegend");
-  if (!pie || !legend) return;
+  const chart = document.querySelector("#stagePie");
+  if (!chart) return;
 
-  const palette = ["#0c7a69", "#c88b35", "#4f6f94", "#b85a6a", "#5f7c54", "#6f6a4f", "#2f5f73", "#8f6f3f", "#1f3d38"];
   const stages = getStages();
-  const counts = stages.map((stage, index) => ({
-    stage,
-    count: activeContacts().filter((contact) => contact.status === stage).length,
-    color: palette[index % palette.length]
-  })).filter((item) => item.count > 0);
+  const counts = stages
+    .map((stage) => ({ stage, count: activeContacts().filter((contact) => contact.status === stage).length }))
+    .filter((item) => item.count > 0);
 
   const total = counts.reduce((sum, item) => sum + item.count, 0) || 1;
-  let cursor = 0;
-  const segments = counts.map((item) => {
-    const start = cursor;
-    const end = cursor + (item.count / total) * 100;
-    cursor = end;
-    return `${item.color} ${start}% ${end}%`;
-  });
+  const maxCount = Math.max(1, ...counts.map((item) => item.count));
 
-  pie.style.background = counts.length ? `conic-gradient(${segments.join(", ")})` : "#dce4df";
-  legend.innerHTML = counts.length
+  chart.innerHTML = counts.length
     ? counts
         .map((item) => {
           const pct = Math.round((item.count / total) * 100);
-          return `<div class="legend-row"><span class="legend-dot" style="--legend-color:${item.color}"></span><strong>${item.stage}</strong><span>${item.count} · ${pct}%</span></div>`;
+          const width = Math.round((item.count / maxCount) * 100);
+          return `<div class="funnel-row"><strong>${htmlEscape(item.stage)}</strong><div class="funnel-track"><div class="funnel-fill" style="width:${width}%"></div></div><span>${item.count} ${String.fromCharCode(183)} ${pct}%</span></div>`;
         })
         .join("")
-    : `<div class="legend-row"><span class="legend-dot" style="--legend-color:#dce4df"></span><strong>Aucun dossier</strong><span>0%</span></div>`;
+    : '<p class="empty">Aucun dossier actif.</p>';
 }
 
 function renderIcons() {
@@ -1799,7 +1789,7 @@ function renderClientControlGrid() {
                 <strong>${htmlEscape(contact.name)}</strong>
                 <small>${htmlEscape(contact.status)} · ${htmlEscape(contact.next || "À planifier")}</small>
               </span>
-              <em title="${htmlEscape(clientScoreTooltip(contact))}" data-score-info="${contact.id}">${clientScore(contact)}/100</em>
+              <em title="${htmlEscape(clientScoreTooltip(contact))}" data-score-info="${contact.id}"><span class="score-dot ${scoreTier(clientScore(contact))}"></span>${clientScore(contact)}/100</em>
             </button>
           `
         )
@@ -1931,7 +1921,7 @@ function renderContacts() {
             ${isContactArchived(contact) ? '<br /><span class="status muted-status">Archivé</span>' : ""}
           </td>
           <td>${htmlEscape(contact.source || "Source ?")}<br /><span class="client-mini">${htmlEscape(contact.owner || "Responsable ?")}</span></td>
-          <td>${contact.search}<br /><span class="client-mini">${contact.target || "Cible à définir"} · ${contact.sector || "Secteur ?"}</span><br /><span class="score-pill" title="${htmlEscape(clientScoreTooltip(contact))}" data-score-info="${contact.id}">${clientScore(contact)}/100</span></td>
+          <td>${contact.search}<br /><span class="client-mini">${contact.target || "Cible à définir"} · ${contact.sector || "Secteur ?"}</span><br /><span class="score-pill" title="${htmlEscape(clientScoreTooltip(contact))}" data-score-info="${contact.id}"><span class="score-dot ${scoreTier(clientScore(contact))}"></span>${clientScore(contact)}/100</span></td>
           <td><span class="status">${displayText(contact.auditStatus)}</span><br /><span class="money-pill">${formatMoney(contact.auditFee)}</span><br /><span class="client-mini">${documentProgress(contact, "audit")}</span></td>
           <td><span class="status">${displayText(contact.mandateStatus)}</span><br /><span class="client-mini">Banque: ${displayText(contact.bankStatus)}</span><br /><span class="client-mini">${documentProgress(contact, "bank")} banque</span></td>
           <td><span class="status">${displayText(contact.gvhStatus)}</span><br /><span class="client-mini">${contact.gvhEnvelope || "À qualifier"}</span><br /><span class="client-mini">${documentProgress(contact, "gvh")}</span></td>
@@ -2150,6 +2140,11 @@ function clientScore(contact) {
   if (timelineProgressRatio(contact) >= 0.35) score += 6;
   if (["À préparer", "Prêt à basculer", "RDV planifié", "Client Hunb'up"].includes(contact.gvhStatus) || normalizeText(contact.gvhStatus) === ["pret", "a", "basculer"].join(" ")) score += 8;
   return Math.min(100, score);
+}
+function scoreTier(score) {
+  if (score >= 70) return "score-good";
+  if (score >= 40) return "score-mid";
+  return "score-low";
 }
 
 function clientScoreBreakdown(contact) {
