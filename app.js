@@ -1754,7 +1754,7 @@ function renderActionHub() {
     ["Relance", "Créer une tâche visible au tableau de bord.", "task", "calendar-plus"],
     ["Planning", "Voir les dossiers étape par étape.", "gantt", "gantt-chart"],
     ["Dossier bancaire", "Exporter ou imprimer depuis l'analyse.", "bank", "file-down"],
-    ["Site web", "Ouvrir laminiere.fr dans un nouvel onglet.", "website", "external-link"]
+    ["Site web", "Ouvrir laminiere.com dans un nouvel onglet.", "website", "external-link"]
   ];
   target.innerHTML = actions
     .map(
@@ -5212,7 +5212,7 @@ document.addEventListener("click", (event) => {
       setView("analysis");
       showToast("Complète l'analyse puis clique Dossier bancaire.");
     }
-    if (type === "website") window.open("https://laminiere.fr/", "_blank", "noopener");
+    if (type === "website") window.open("https://laminiere.com/", "_blank", "noopener");
     return;
   }
 
