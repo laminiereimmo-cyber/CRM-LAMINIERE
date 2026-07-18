@@ -471,6 +471,23 @@ h2 {
   outline: none;
 }
 
+.metric-card-accent-blue {
+  border-color: rgba(79, 111, 148, 0.35);
+}
+
+.metric-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  margin-right: 6px;
+  vertical-align: 1px;
+}
+
+.metric-dot-blue {
+  background: var(--blue);
+}
+
 .metric-card span {
   color: var(--muted);
   font-weight: 700;

@@ -1572,14 +1572,14 @@ function renderMetrics() {
     },
     { label: "Clients actifs", value: hotContacts, note: "Prospects et opérations LaMinière" },
     { label: "Relances ouvertes", value: openTasks, note: "À traiter cette semaine" },
-    { label: "Bascule Hunb'up", value: gvhReady, note: "Clients prêts pour assurance vie" }
+    { label: "Bascule Hunb'up", value: gvhReady, note: "Clients prêts pour assurance vie", accent: "blue" }
   ];
 
   document.querySelector("#metrics").innerHTML = metrics
     .map(
       (metric) => `
-        <article class="metric-card ${metric.action ? "metric-card-action" : ""}" ${metric.action ? `data-metric-action="${metric.action}" role="button" tabindex="0"` : ""}>
-          <span>${metric.label}</span>
+        <article class="metric-card ${metric.action ? "metric-card-action" : ""} ${metric.accent ? "metric-card-accent-" + metric.accent : ""}" ${metric.action ? `data-metric-action="${metric.action}" role="button" tabindex="0"` : ""}>
+          <span>${metric.accent ? `<span class="metric-dot metric-dot-${metric.accent}"></span>` : ""}${metric.label}</span>
           <strong>${metric.value}</strong>
           <p>${metric.note}</p>
           ${metric.extra || ""}
