@@ -1799,7 +1799,7 @@ function renderClientControlGrid() {
                 <strong>${htmlEscape(contact.name)}</strong>
                 <small>${htmlEscape(contact.status)} · ${htmlEscape(contact.next || "À planifier")}</small>
               </span>
-              <em>${clientScore(contact)}/100</em>
+              <em title="${htmlEscape(clientScoreTooltip(contact))}">${clientScore(contact)}/100</em>
             </button>
           `
         )
@@ -1931,7 +1931,7 @@ function renderContacts() {
             ${isContactArchived(contact) ? '<br /><span class="status muted-status">Archivé</span>' : ""}
           </td>
           <td>${htmlEscape(contact.source || "Source ?")}<br /><span class="client-mini">${htmlEscape(contact.owner || "Responsable ?")}</span></td>
-          <td>${contact.search}<br /><span class="client-mini">${contact.target || "Cible à définir"} · ${contact.sector || "Secteur ?"}</span><br /><span class="score-pill">${clientScore(contact)}/100</span></td>
+          <td>${contact.search}<br /><span class="client-mini">${contact.target || "Cible à définir"} · ${contact.sector || "Secteur ?"}</span><br /><span class="score-pill" title="${htmlEscape(clientScoreTooltip(contact))}">${clientScore(contact)}/100</span></td>
           <td><span class="status">${displayText(contact.auditStatus)}</span><br /><span class="money-pill">${formatMoney(contact.auditFee)}</span><br /><span class="client-mini">${documentProgress(contact, "audit")}</span></td>
           <td><span class="status">${displayText(contact.mandateStatus)}</span><br /><span class="client-mini">Banque: ${displayText(contact.bankStatus)}</span><br /><span class="client-mini">${documentProgress(contact, "bank")} banque</span></td>
           <td><span class="status">${displayText(contact.gvhStatus)}</span><br /><span class="client-mini">${contact.gvhEnvelope || "À qualifier"}</span><br /><span class="client-mini">${documentProgress(contact, "gvh")}</span></td>
@@ -2101,6 +2101,30 @@ function clientScore(contact) {
   if (timelineProgressRatio(contact) >= 0.35) score += 6;
   if (["À préparer", "Prêt à basculer", "RDV planifié", "Client Hunb'up"].includes(contact.gvhStatus) || normalizeText(contact.gvhStatus) === ["pret", "a", "basculer"].join(" ")) score += 8;
   return Math.min(100, score);
+}
+
+function clientScoreBreakdown(contact) {
+  ensureContactDefaults(contact);
+  return [
+    [["Envoyé", "Payé", "Réalisé"].includes(contact.auditStatus), "Audit envoyé", 12],
+    [["Payé", "Réalisé"].includes(contact.auditStatus), "Audit payé", 12],
+    [contact.apport > 0, "Apport renseigné", 10],
+    [contact.capacite > 0, "Capacité bancaire renseignée", 10],
+    [contact.search && contact.search !== "À définir", "Projet défini", 8],
+    [contact.target && contact.target !== "Cible à définir", "Cible définie", 8],
+    [contact.sector && !["À définir", "Secteur ?"].includes(contact.sector), "Secteur défini", 6],
+    [contact.mandateStatus === "Signé", "Mandat signé", 12],
+    [documentProgressRatio(contact, "audit") >= 0.5, "Pièces audit au moins 50%", 8],
+    [documentProgressRatio(contact, "bank") >= 0.4, "Pièces banque au moins 40%", 6],
+    [timelineProgressRatio(contact) >= 0.35, "Planning au moins 35%", 6],
+    [["À préparer", "Prêt à basculer", "RDV planifié", "Client Hunb'up"].includes(contact.gvhStatus) || normalizeText(contact.gvhStatus) === ["pret", "a", "basculer"].join(" "), "Prêt Hunb'up", 8]
+  ].map(([met, label, points]) => ({ met, label, points }));
+}
+
+function clientScoreTooltip(contact) {
+  return clientScoreBreakdown(contact)
+    .map(({ met, label, points }) => (met ? "OK  " : "--  ") + label + " (" + points + " pts)")
+    .join(String.fromCharCode(10));
 }
 
 function detectBlockers(contact) {
