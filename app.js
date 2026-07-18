@@ -1962,7 +1962,56 @@ function prospectRelances(contact) {
   return state.tasks.map(ensureTaskDefaults).filter((task) => task.clientId === contact.id && !task.done);
 }
 
+function parseIsoDate(value) {
+  const text = String(value || "").trim();
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(text);
+  if (!match) return null;
+  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function startOfToday() {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+}
+
+function isoDateFromDate(date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function tomorrowIso() {
+  const date = startOfToday();
+  date.setDate(date.getDate() + 1);
+  return isoDateFromDate(date);
+}
+
+function formatDueLabel(value) {
+  const parsed = parseIsoDate(value);
+  if (!parsed) return value || "";
+  const diffDays = Math.round((parsed - startOfToday()) / 86400000);
+  if (diffDays < 0) return `En retard (${-diffDays}j)`;
+  if (diffDays === 0) return "Aujourd'hui";
+  if (diffDays === 1) return "Demain";
+  if (diffDays > 1 && diffDays <= 6) return `Dans ${diffDays} jours`;
+  return parsed.toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
+}
+
+function isDecemberDue(task) {
+  const parsed = parseIsoDate(task.due);
+  if (parsed) return parsed.getMonth() === 11;
+  const text = normalizeText(task.due);
+  return text.includes("decembre") || text.includes("december");
+}
+
 function taskUrgencyRank(task) {
+  const parsed = parseIsoDate(task.due);
+  if (parsed) {
+    const diffDays = Math.round((parsed - startOfToday()) / 86400000);
+    if (diffDays < 0) return -1;
+    if (diffDays === 0) return 0;
+    if (diffDays === 1) return 1;
+    return 5 + diffDays;
+  }
   const due = normalizeText(task.due);
   if (due.includes("aujourd")) return 0;
   if (due.includes("demain")) return 1;
@@ -1982,7 +2031,7 @@ function renderProspects() {
     prospects
       .map((contact) => {
         const relances = prospectRelances(contact);
-        const december = relances.find((task) => normalizeText(task.due).includes("decembre") || normalizeText(task.due).includes("december"));
+        const december = relances.find((task) => isDecemberDue(task));
         return `
           <article class="prospect-card" data-prospect-id="${contact.id}">
             <div>
@@ -1996,7 +2045,7 @@ function renderProspects() {
               <span>${htmlEscape(contact.next || december?.title || "Relance à planifier")}</span>
             </div>
             <div class="prospect-relances">
-              ${relances.length ? relances.slice(0, 3).map((task) => `<span class="status">${htmlEscape(task.due)} · ${htmlEscape(task.title)}</span>`).join("") : '<span class="client-mini">Aucune relance ouverte</span>'}
+              ${relances.length ? relances.slice(0, 3).map((task) => `<span class="status">${htmlEscape(formatDueLabel(task.due))} · ${htmlEscape(task.title)}</span>`).join("") : '<span class="client-mini">Aucune relance ouverte</span>'}
             </div>
             <div class="card-actions">
               <button class="ghost-button" type="button" data-open-prospect="${contact.id}">Ouvrir</button>
@@ -2043,7 +2092,7 @@ function addDecemberProspectRelance(contactId) {
   const contact = state.contacts.find((item) => item.id === contactId);
   if (!contact) return;
   const hasDecemberRelance = state.tasks.map(ensureTaskDefaults).some((task) => {
-    return task.clientId === contactId && !task.done && normalizeText(task.due).includes("decembre");
+    return task.clientId === contactId && !task.done && isDecemberDue(task);
   });
   if (hasDecemberRelance) {
     showToast("Une relance décembre existe déjà pour ce prospect.");
@@ -2304,7 +2353,7 @@ function renderGantt() {
         <article class="gantt-row">
           <div class="gantt-meta">
             <strong>${htmlEscape(deal.title)}</strong>
-            <span>${htmlEscape(deal.stage)} · ${htmlEscape(nextTask?.due || deal.due || "À planifier")}</span>
+            <span>${htmlEscape(deal.stage)} · ${htmlEscape(formatDueLabel(nextTask?.due || deal.due || "À planifier"))}</span>
           </div>
           <div class="gantt-track" style="--gantt-progress:${progress}%">
             <span></span>
@@ -2533,6 +2582,7 @@ function ensureTaskDefaults(task) {
     type: "Relance",
     priority: "Normale",
     due: "Aujourd'hui",
+    recurrenceDays: 0,
     done: false,
     createdAt: new Date().toISOString().slice(0, 10)
   };
@@ -3341,7 +3391,7 @@ function taskTemplate(task) {
   const client = findTaskClient(task);
   const priorityClass = task.priority === "Haute" ? "priority-high" : task.priority === "Basse" ? "priority-low" : "";
   const urgencyRank = taskUrgencyRank(task);
-  const urgencyClass = task.done ? "" : urgencyRank === 0 ? "task-due-today" : urgencyRank === 1 ? "task-due-soon" : "";
+  const urgencyClass = task.done ? "" : urgencyRank === -1 ? "task-overdue" : urgencyRank === 0 ? "task-due-today" : urgencyRank === 1 ? "task-due-soon" : "";
   return `
     <article class="task-item ${task.done ? "task-done" : ""} ${urgencyClass}">
       <button class="check ${task.done ? "done" : ""}" data-toggle-task="${task.id}" type="button" title="Basculer la tache">
@@ -3353,7 +3403,7 @@ function taskTemplate(task) {
         <small>${client ? `Client: ${htmlEscape(client.name)}` : "Aucun client lié"} · ${htmlEscape(task.type || "Relance")}</small>
       </div>
       <div class="task-side">
-        <span class="status ${priorityClass}">${htmlEscape(task.due)}</span>
+        <span class="status ${priorityClass}">${htmlEscape(formatDueLabel(task.due))}</span>
         <div class="task-actions">
           ${client ? `<button class="ghost-button table-action" data-open-linked-contact="${client.id}" type="button">Client</button>` : ""}
           <button class="ghost-button table-action" data-edit-task="${task.id}" type="button">Modifier</button>
@@ -4520,7 +4570,8 @@ function openModal(type) {
         ["type", "Type", editedTask?.type || "Relance", "select", "", ["Relance", "Rendez-vous", "Document", "Banque", "Notaire", "Hunb'up", "Autre"]],
         ["priority", "Priorité", editedTask?.priority || "Normale", "select", "", ["Basse", "Normale", "Haute"]],
         ["detail", "Détail", editedTask?.detail || "Valider disponibilités", "text", "full"],
-        ["due", "Échéance", editedTask?.due || "Demain"]
+        ["due", "Échéance", parseIsoDate(editedTask?.due) ? editedTask.due : tomorrowIso(), "date"],
+        ["recurrenceDays", "Relance recurrente tous les (jours, 0 = desactive)", editedTask?.recurrenceDays || 0, "number"]
       ]
     }
   }[type];
@@ -4724,7 +4775,8 @@ function createEntry(type, values) {
       type: values.type,
       priority: values.priority,
       detail: values.detail,
-      due: values.due
+      due: values.due,
+      recurrenceDays: Number(values.recurrenceDays || 0)
     };
     if (editingTaskId) {
       const task = state.tasks.find((item) => item.id === editingTaskId);
@@ -5209,9 +5261,32 @@ document.querySelector("#entryModal").addEventListener("cancel", (event) => {
   event.preventDefault();
 });
 
+function refreshRecurringTasks() {
+  const today = startOfToday();
+  let changed = false;
+  state.tasks.forEach((task) => {
+    ensureTaskDefaults(task);
+    if (task.done || !task.recurrenceDays) return;
+    const parsed = parseIsoDate(task.due);
+    if (!parsed) return;
+    let next = parsed;
+    let moved = false;
+    while (next < today) {
+      next = new Date(next.getFullYear(), next.getMonth(), next.getDate() + Number(task.recurrenceDays));
+      moved = true;
+    }
+    if (moved) {
+      task.due = isoDateFromDate(next);
+      changed = true;
+    }
+  });
+  if (changed) saveState();
+}
+
 initRouting();
 initInstallPrompt();
 registerServiceWorker();
+refreshRecurringTasks();
 render();
 initAutoCloudSync();
 

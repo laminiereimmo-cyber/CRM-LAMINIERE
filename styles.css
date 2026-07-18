@@ -945,6 +945,12 @@ h2 {
   color: var(--muted);
 }
 
+.task-list .task-item.task-overdue,
+.task-card.task-overdue {
+  border-left-color: #8f2f2f;
+  background: #f7dfdf;
+}
+
 .task-list .task-item.task-due-today,
 .task-card.task-due-today {
   border-left-color: var(--rose);
