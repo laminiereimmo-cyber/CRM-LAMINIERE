@@ -3951,7 +3951,7 @@ function exportClientExcel(contact) {
   showToast("Dossier Excel exporté.");
 }
 
-function exportAnalysisBankWord() {
+function buildBankDossierHtml() {
   renderAnalysis();
   const address = document.querySelector("#analysisAddress")?.value || "";
   const addressExtra = document.querySelector("#analysisAddressExtra")?.value || "";
@@ -3960,6 +3960,7 @@ function exportAnalysisBankWord() {
   const country = document.querySelector("#analysisCountry")?.value || "France";
   const cadastre = document.querySelector("#analysisCadastre")?.value || "";
   const projectType = document.querySelector("#analysisProjectType")?.value || "";
+  const asset = document.querySelector("#analysisAsset")?.value || "Petit immeuble de rapport";
   const description = document.querySelector("#analysisDescription")?.value || "";
   const client = getAnalysisClient();
   const price = readNumber("analysisPrice");
@@ -3994,6 +3995,10 @@ function exportAnalysisBankWord() {
   const cashflow = Math.round(rent - creditWithInsurance - monthlyOperatingCosts);
   const grossYield = totalCost ? Math.round(((rent * 12) / totalCost) * 1000) / 10 : 0;
   const pricePerSqm = area ? Math.round(price / area) : 0;
+  const rentPerSqm = area ? Math.round((rent / area) * 10) / 10 : 0;
+  const tensionScore = estimateRentalTension(address, asset, rentPerSqm);
+  const tensionGauge = Math.min(100, Math.max(0, rentalPressure || tensionScore));
+  const priceGauge = marketPriceSqm ? Math.min(100, Math.round((pricePerSqm / marketPriceSqm) * 100)) : 0;
   const safeTitle = safeFilename(address || projectType || "analyse-bien");
   const sectorRows = [
     ["Population commune", population ? new Intl.NumberFormat("fr-FR").format(population) : "À compléter", population ? Math.min(100, Math.round(population / 1000)) : 0],
@@ -4001,7 +4006,7 @@ function exportAnalysisBankWord() {
     ["Prix m² projet", pricePerSqm ? `${formatExactMoney(pricePerSqm)} / m²` : "À compléter", pricePerSqm ? 65 : 0],
     ["Revenu médian annuel", medianIncome ? formatExactMoney(medianIncome) : "À compléter", medianIncome ? Math.min(100, Math.round((medianIncome / 30000) * 100)) : 0],
     ["Part locataires", tenantShare ? `${tenantShare}%` : "À compléter", tenantShare || 0],
-    ["Tension locative", rentalPressure ? `${rentalPressure}%` : "À compléter", rentalPressure || 0]
+    ["Tension locative", `${tensionGauge}%`, tensionGauge]
   ];
   const sectorChart = sectorRows
     .map(([label, value, pct]) => `
@@ -4049,46 +4054,52 @@ function exportAnalysisBankWord() {
         <meta charset="utf-8">
         <title>Dossier bancaire - ${htmlEscape(address || projectType)}</title>
         <style>
-          body{margin:0;background:#f4f7f4;color:#17211f;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.4}
-          .page{width:720px;margin:0 auto;background:#ffffff}
-          .cover{padding:18px 30px 16px;background:#102820;color:#ffffff}
-          h1{margin:0 0 6px;font-size:28px;line-height:1.15}
-          .subtitle{margin:0;color:#dbe7df;font-size:13px}
-          .content{padding:22px 30px}
+          body{margin:0;background:#f5f8f3;color:#16211e;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.5}
+          .page{width:720px;margin:0 auto;background:#ffffff;border:1px solid #dce4dd}
+          .cover{padding:26px 34px 22px;background:#ffffff;border-bottom:4px solid #0c7a69}
+          .cover img{height:56px;display:block;margin-bottom:14px}
+          .eyebrow{margin:0 0 4px;color:#07594d;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+          h1{margin:0 0 4px;font-size:26px;line-height:1.15;color:#16211e}
+          .subtitle{margin:0;color:#5c6b64;font-size:13px}
+          .content{padding:24px 34px 30px}
           .summary{width:100%;border-collapse:collapse;margin:0 0 18px}
           .summary td{padding:4px 0;border:0;vertical-align:top}
-          .summary .label{width:150px;font-weight:700;color:#102820}
+          .summary .label{width:160px;font-weight:700;color:#07594d}
           .photo-frame{width:100%;border-collapse:collapse;margin:14px 0 18px}
-          .photo-frame td{padding:0;border:1px solid #d9e1dc;background:#eef4ef;text-align:center}
+          .photo-frame td{padding:0;border:1px solid #dce4dd;background:#eef4ef;text-align:center}
           .main-photo{display:block;width:620px;max-width:620px;height:auto;margin:0 auto;border:0}
-          .photo-placeholder{margin:16px 0 22px;padding:38px;border:1px dashed #9bb8ad;background:#f7fbf8;color:#65736d;text-align:center;font-weight:700}
+          .photo-placeholder{margin:16px 0 22px;padding:38px;border:1px dashed #9bb8ad;background:#f5f8f3;color:#5c6b64;text-align:center;font-weight:700}
           .kpis{width:100%;border-collapse:separate;border-spacing:8px;margin:0 -8px 16px}
-          .kpis td{width:33%;padding:10px 12px;border:1px solid #d9e1dc;background:#f7fbf8;vertical-align:top}
-          .kpi-label{display:block;color:#65736d;font-size:10px;font-weight:700;text-transform:uppercase;line-height:1.2}
-          .kpi-value{display:block;margin-top:6px;color:#006f61;font-size:16px;font-weight:800;line-height:1.25;white-space:normal}
-          h2{margin:22px 0 8px;padding-bottom:6px;border-bottom:2px solid #d7b45b;color:#006f61;font-size:17px}
+          .kpis td{width:25%;padding:12px 12px;border:1px solid #dce4dd;background:#f5f8f3;vertical-align:top}
+          .kpi-label{display:block;color:#8b978f;font-size:10px;font-weight:700;text-transform:uppercase;line-height:1.2}
+          .kpi-value{display:block;margin-top:6px;color:#07594d;font-size:17px;font-weight:800;line-height:1.25;white-space:normal}
+          h2{margin:26px 0 4px;padding-bottom:6px;border-bottom:2px solid #c08a34;color:#16211e;font-size:16px}
+          .section-note{margin:0 0 10px;color:#5c6b64;font-size:12px}
           .data{width:100%;border-collapse:collapse;margin:10px 0 18px}
-          .data th,.data td{border:1px solid #d9e1dc;padding:7px 9px;text-align:left;vertical-align:middle}
-          .data th{width:48%;background:#f7fbf8;color:#102820}
-          .bar{width:170px;height:10px;border-radius:10px;background:#e4ece7;overflow:hidden}
-          .bar span{display:block;height:10px;background:#006f61}
-          .muted{color:#65736d;font-size:12px}
-          ul{margin-top:8px}
+          .data th,.data td{border:1px solid #dce4dd;padding:8px 10px;text-align:left;vertical-align:middle}
+          .data th{width:48%;background:#f5f8f3;color:#16211e;font-weight:700}
+          .bar{width:170px;height:10px;border-radius:10px;background:#dce4dd;overflow:hidden}
+          .bar span{display:block;height:10px;background:#0c7a69}
+          .muted{color:#5c6b64;font-size:12px}
+          ul{margin-top:8px;padding-left:20px}
           li{margin-bottom:5px}
+          .footer{margin-top:26px;padding-top:14px;border-top:1px solid #dce4dd;color:#8b978f;font-size:10.5px;display:flex;justify-content:space-between}
         </style>
       </head>
       <body>
         <div class="page">
           <div class="cover">
-            <h1>Dossier bancaire</h1>
-            <p class="subtitle">Synthèse opération, budget et financement</p>
+            <img src="${LAMINIERE_LOGO_DATA_URL}" alt="LaMinière">
+            <p class="eyebrow">Dossier bancaire</p>
+            <h1>${htmlEscape(projectType || asset)}</h1>
+            <p class="subtitle">${htmlEscape(address || "Adresse à compléter")} · Synthèse opération, budget et financement</p>
           </div>
           <div class="content">
             <h2>Sommaire</h2>
             <ol>
               <li>Emprunteur(s)</li>
               <li>Présentation du projet</li>
-              <li>Analyse du secteur</li>
+              <li>Confiance marché et analyse du secteur</li>
               <li>Budget opération</li>
               <li>Rentabilité et financement</li>
               <li>Pièces à joindre</li>
@@ -4107,6 +4118,7 @@ function exportAnalysisBankWord() {
                 <td><span class="kpi-label">Coût total</span><span class="kpi-value">${formatExactMoney(totalCost)}</span></td>
                 <td><span class="kpi-label">Apport</span><span class="kpi-value">${formatExactMoney(contribution)}</span></td>
                 <td><span class="kpi-label">Rendement brut</span><span class="kpi-value">${grossYield}%</span></td>
+                <td><span class="kpi-label">Cashflow</span><span class="kpi-value">${formatExactMoney(cashflow)}/mois</span></td>
               </tr>
             </table>
             <h2>2. Présentation du projet</h2>
@@ -4118,8 +4130,8 @@ function exportAnalysisBankWord() {
               <tr><th>Travaux</th><td>${formatExactMoney(works)}</td></tr>
               <tr><th>Meubles</th><td>${formatExactMoney(furniture)}</td></tr>
             </table>
-            <h2>3. Analyse du secteur</h2>
-            <p class="muted">Commune : ${htmlEscape(city || "À compléter")} - données à contrôler avec INSEE, DVF et annonces locatives.</p>
+            <h2>3. Confiance marché et analyse du secteur</h2>
+            <p class="section-note">Commune : ${htmlEscape(city || "À compléter")} - données à contrôler avec INSEE, DVF et annonces locatives.</p>
             <table class="data">
               ${sectorChart}
             </table>
@@ -4149,71 +4161,29 @@ function exportAnalysisBankWord() {
               <li>Diagnostics, urbanisme, cadastre et éléments notaire</li>
               <li>Simulation bancaire et justificatifs client</li>
             </ul>
+            <div class="footer">
+              <span>LaMinière · laminiere.com</span>
+              <span>Document indicatif, à confirmer par le notaire et la banque.</span>
+            </div>
           </div>
         </div>
       </body>
     </html>
   `;
+  return { html, safeTitle, address, projectType };
+}
+
+function exportAnalysisBankWord() {
+  const { html, safeTitle } = buildBankDossierHtml();
   downloadTextFile(`dossier-bancaire-${safeTitle}.doc`, html, "application/msword");
   showToast("Dossier bancaire Word exporté.");
 }
 
 function printAnalysisBankDossier() {
-  renderAnalysis();
-  const address = document.querySelector("#analysisAddress")?.value || "Adresse à compléter";
-  const client = getAnalysisClient();
-  const projectType = document.querySelector("#analysisProjectType")?.value || "Investissement locatif ancien";
-  const price = readNumber("analysisPrice");
-  const works = readNumber("analysisWorks");
-  const rent = readNumber("analysisRent");
-  const contribution = readNumber("analysisContribution");
-  const analysisHtml = document.querySelector("#analysisResults")?.innerHTML || "";
-  const printable = window.open("", "_blank", "width=900,height=1100");
-  if (!printable) {
-    showToast("Autorise les pop-ups pour imprimer le dossier bancaire.");
-    return;
-  }
-  printable.document.write(`
-    <html>
-      <head>
-        <meta charset="utf-8">
-        <title>Dossier bancaire - ${htmlEscape(address)}</title>
-        <style>
-          body{margin:0;padding:28px;background:#f4f7f4;color:#17211f;font-family:Arial,Helvetica,sans-serif}
-          .print-page{max-width:900px;margin:0 auto;background:#fff;padding:28px;border:1px solid #d9e1dc}
-          h1{margin:0 0 6px;color:#102820;font-size:30px}
-          h2{margin-top:24px;padding-bottom:6px;border-bottom:2px solid #d7b45b;color:#006f61}
-          .intro{color:#65736d}
-          .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:18px 0}
-          .kpis div{padding:12px;border:1px solid #d9e1dc;background:#f7fbf8}
-          .kpis span{display:block;color:#65736d;font-size:11px;font-weight:700;text-transform:uppercase}
-          .kpis strong{display:block;margin-top:6px;color:#006f61;font-size:18px}
-          .analysis-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-          .analysis-card{break-inside:avoid;padding:14px;border:1px solid #d9e1dc;background:#fff}
-          .analysis-card.wide{grid-column:1 / -1}
-          .analysis-photo,.ghost-button,.primary-button,.field-button{display:none!important}
-          .metric-line,.analysis-card div{max-width:100%}
-          @media print{body{padding:0;background:#fff}.print-page{border:0}.ghost-button,.primary-button{display:none!important}}
-        </style>
-      </head>
-      <body>
-        <main class="print-page">
-          <h1>Dossier bancaire</h1>
-          <p class="intro">${htmlEscape(projectType)} · ${htmlEscape(address)} · ${htmlEscape(client?.name || "Emprunteur à compléter")}</p>
-          <section class="kpis">
-            <div><span>Prix FAI</span><strong>${formatExactMoney(price)}</strong></div>
-            <div><span>Travaux</span><strong>${formatExactMoney(works)}</strong></div>
-            <div><span>Loyers</span><strong>${formatExactMoney(rent)} / mois</strong></div>
-            <div><span>Apport</span><strong>${formatExactMoney(contribution)}</strong></div>
-          </section>
-          <h2>Analyse et rentabilité</h2>
-          <div class="analysis-grid">${analysisHtml}</div>
-        </main>
-        <script>window.onload = () => { window.print(); };</script>
-      </body>
-    </html>
-  `);
-  printable.document.close();
+  const { html, safeTitle } = buildBankDossierHtml();
+  const printHtml = html.replace("</body>", '<script>window.onload = () => { window.print(); };</script></body>');
+  downloadTextFile(`dossier-bancaire-${safeTitle}.html`, printHtml, "text/html");
+  showToast("Dossier bancaire téléchargé. Ouvre le fichier pour imprimer ou enregistrer en PDF.");
 }
 
 function printClientFiche() {
