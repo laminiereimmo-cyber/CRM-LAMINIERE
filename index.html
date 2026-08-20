@@ -69,6 +69,10 @@
             <span data-icon="landmark"></span>
             Hunb'up
           </button>
+          <button class="nav-item" data-view="fg-gestion" type="button">
+            <span data-icon="handshake"></span>
+            Gestion FG
+          </button>
         </nav>
 
         <div class="sidebar-panel">
@@ -616,6 +620,40 @@
             </div>
           </div>
           <div class="gvh-grid" id="gvhGrid"></div>
+        </section>
+
+        <section class="view" id="fg-gestion" aria-label="Gestion locative FG">
+          <div class="section-toolbar">
+            <div>
+              <p class="eyebrow">Partenariat FG Centrale Immobilière</p>
+              <h2>Rétrocession gestion locative (30%)</h2>
+            </div>
+            <div class="toolbar-actions">
+              <select id="fgAddContactSelect"></select>
+              <button class="primary-button" id="fgAddContact" type="button">
+                <span data-icon="plus"></span>
+                Ajouter un client
+              </button>
+            </div>
+          </div>
+          <div class="metric-grid" id="fgSummary"></div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Client</th>
+                  <th>Secteur</th>
+                  <th>Loyer mensuel</th>
+                  <th>% honoraires FG</th>
+                  <th>% rétrocession</th>
+                  <th>Rétrocession / mois</th>
+                  <th>Rétrocession / an</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="fgGestionBody"></tbody>
+            </table>
+          </div>
         </section>
       </main>
     </div>

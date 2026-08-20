@@ -1378,6 +1378,14 @@ tbody tr[data-contact-id]:hover {
   background: #f5faf6;
 }
 
+.fg-input {
+  width: 96px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-size: 0.85rem;
+}
+
 .status {
   display: inline-flex;
   min-height: 28px;

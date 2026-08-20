@@ -524,7 +524,8 @@ const pageTitles = {
   pipeline: "Opérations accompagnées",
   gantt: "Planning dossiers",
   tasks: "Relances",
-  gvh: "Socle Hunb'up"
+  gvh: "Socle Hunb'up",
+  "fg-gestion": "Gestion FG"
 };
 
 function loadState() {
@@ -1039,6 +1040,7 @@ function render() {
   renderGantt();
   renderTasks();
   renderGvh();
+  renderFgGestion();
   renderAnalysisClientOptions();
   renderAnalysis();
   renderIcons();
@@ -2224,6 +2226,10 @@ function ensureContactDefaults(contact) {
     cgpPpe: "Non vérifié",
     cgpUsPerson: "Non vérifié",
     cgpCompliance: "À compléter",
+    fgGestionStatus: "Pas de bien en gestion",
+    fgLoyerMensuel: 0,
+    fgTauxHonoraires: 8,
+    fgTauxRetrocession: 30,
     docChecks: {},
     timelineChecks: {},
     archivedAt: "",
@@ -3474,6 +3480,146 @@ function bindGvhCards() {
     if (!card) return;
     openContactDrawer(card.dataset.gvhContactId);
     setDrawerTab("gvh");
+  });
+}
+
+function fgHonorairesMensuels(contact) {
+  return Number(contact.fgLoyerMensuel || 0) * (Number(contact.fgTauxHonoraires || 0) / 100);
+}
+
+function fgRetrocessionMensuelle(contact) {
+  return fgHonorairesMensuels(contact) * (Number(contact.fgTauxRetrocession || 0) / 100);
+}
+
+function fgRetrocessionAnnuelle(contact) {
+  return fgRetrocessionMensuelle(contact) * 12;
+}
+
+function isInFgGestion(contact) {
+  return contact.fgGestionStatus === "En gestion FG";
+}
+
+function fgGestionContacts() {
+  return activeContacts().map(ensureContactDefaults).filter(isInFgGestion);
+}
+
+function renderFgSummary() {
+  const summary = document.querySelector("#fgSummary");
+  if (!summary) return;
+  const inGestion = fgGestionContacts();
+  const totalLoyers = inGestion.reduce((sum, contact) => sum + Number(contact.fgLoyerMensuel || 0), 0);
+  const totalMensuel = inGestion.reduce((sum, contact) => sum + fgRetrocessionMensuelle(contact), 0);
+  const totalAnnuel = inGestion.reduce((sum, contact) => sum + fgRetrocessionAnnuelle(contact), 0);
+  summary.innerHTML = `
+    <article class="metric-card">
+      <span>Mandats en gestion FG</span>
+      <strong>${inGestion.length}</strong>
+      <p>clients suivis via le partenariat</p>
+    </article>
+    <article class="metric-card">
+      <span>Loyers mensuels cumulés</span>
+      <strong>${formatExactMoney(totalLoyers)}</strong>
+      <p>base de calcul des honoraires FG</p>
+    </article>
+    <article class="metric-card metric-card-accent-blue">
+      <span>Rétrocession / mois</span>
+      <strong>${formatExactMoney(totalMensuel)}</strong>
+      <p>versée par FG à LaMinière</p>
+    </article>
+    <article class="metric-card metric-card-accent-blue">
+      <span>Rétrocession / an (projection)</span>
+      <strong>${formatExactMoney(totalAnnuel)}</strong>
+      <p>si les mandats restent stables</p>
+    </article>
+  `;
+}
+
+function renderFgRows() {
+  const body = document.querySelector("#fgGestionBody");
+  if (!body) return;
+  const inGestion = fgGestionContacts().filter(matchesSearch);
+  body.innerHTML =
+    inGestion
+      .map(
+        (contact) => `
+          <tr data-fg-contact-id="${contact.id}">
+            <td><strong>${htmlEscape(contact.name)}</strong></td>
+            <td>${htmlEscape(contact.sector || "Secteur à préciser")}</td>
+            <td><input class="fg-input" data-fg-field="fgLoyerMensuel" type="number" min="0" step="1" value="${Number(contact.fgLoyerMensuel || 0)}" /></td>
+            <td><input class="fg-input" data-fg-field="fgTauxHonoraires" type="number" min="0" step="0.01" value="${Number(contact.fgTauxHonoraires || 0)}" /></td>
+            <td><input class="fg-input" data-fg-field="fgTauxRetrocession" type="number" min="0" step="0.01" value="${Number(contact.fgTauxRetrocession || 0)}" /></td>
+            <td><span class="money-pill" data-fg-monthly>${formatExactMoney(fgRetrocessionMensuelle(contact))}</span></td>
+            <td><span class="money-pill" data-fg-yearly>${formatExactMoney(fgRetrocessionAnnuelle(contact))}</span></td>
+            <td><button class="ghost-button table-action" data-fg-remove="${contact.id}" type="button">Retirer</button></td>
+          </tr>
+        `
+      )
+      .join("") || `<tr><td colspan="8" class="empty">Aucun client en gestion FG pour l'instant. Ajoutez-en un ci-dessus.</td></tr>`;
+}
+
+function renderFgAddOptions() {
+  const addSelect = document.querySelector("#fgAddContactSelect");
+  if (!addSelect) return;
+  const eligible = activeContacts().map(ensureContactDefaults).filter((contact) => !isInFgGestion(contact));
+  addSelect.innerHTML =
+    `<option value="">Choisir un client…</option>` +
+    eligible.map((contact) => `<option value="${contact.id}">${htmlEscape(contact.name)}</option>`).join("");
+}
+
+function renderFgGestion() {
+  renderFgSummary();
+  renderFgRows();
+  renderFgAddOptions();
+}
+
+function recalculateFgRow(row) {
+  const contact = state.contacts.find((item) => item.id === row.dataset.fgContactId);
+  if (!contact) return;
+  row.querySelectorAll("[data-fg-field]").forEach((input) => {
+    contact[input.dataset.fgField] = Number(input.value || 0);
+  });
+  row.querySelector("[data-fg-monthly]").textContent = formatExactMoney(fgRetrocessionMensuelle(contact));
+  row.querySelector("[data-fg-yearly]").textContent = formatExactMoney(fgRetrocessionAnnuelle(contact));
+  renderFgSummary();
+}
+
+function addContactToFgGestion(contactId) {
+  const contact = state.contacts.find((item) => item.id === contactId);
+  if (!contact) return;
+  ensureContactDefaults(contact);
+  contact.fgGestionStatus = "En gestion FG";
+  saveState();
+  renderFgGestion();
+  showToast(`${contact.name} ajouté au suivi Gestion FG.`);
+}
+
+function removeContactFromFgGestion(contactId) {
+  const contact = state.contacts.find((item) => item.id === contactId);
+  if (!contact) return;
+  contact.fgGestionStatus = "Pas de bien en gestion";
+  saveState();
+  renderFgGestion();
+}
+
+function bindFgGestion() {
+  document.querySelector("#fgAddContact")?.addEventListener("click", () => {
+    const select = document.querySelector("#fgAddContactSelect");
+    if (select && select.value) addContactToFgGestion(select.value);
+  });
+  const body = document.querySelector("#fgGestionBody");
+  if (!body) return;
+  body.addEventListener("input", (event) => {
+    const input = event.target.closest("[data-fg-field]");
+    if (!input) return;
+    const row = input.closest("[data-fg-contact-id]");
+    if (row) recalculateFgRow(row);
+  });
+  body.addEventListener("change", (event) => {
+    if (event.target.closest("[data-fg-field]")) saveState();
+  });
+  body.addEventListener("click", (event) => {
+    const removeButton = event.target.closest("[data-fg-remove]");
+    if (removeButton) removeContactFromFgGestion(removeButton.dataset.fgRemove);
   });
 }
 
@@ -5322,6 +5468,7 @@ document.querySelector("#exportClientExcel").addEventListener("click", exportAct
 document.querySelector("#archiveContact").addEventListener("click", archiveActiveContact);
 document.querySelector("#deleteContact").addEventListener("click", deleteActiveContact);
 bindGvhCards();
+bindFgGestion();
 
 document.addEventListener("click", (event) => {
   const action = event.target.closest("[data-action-hub]");
