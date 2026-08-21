@@ -1134,6 +1134,7 @@ function calculateOldPropertyAcquisitionFees(price, dmtoMode) {
 let addressSuggestions = [];
 let addressSearchTimer;
 let analysisPhotoDataUrl = "";
+let analysisLots = [];
 
 async function fetchAddressSuggestions(query) {
   if (!query || query.trim().length < 4) return;
@@ -4484,6 +4485,243 @@ function printClientFiche() {
   showToast("Fiche client telechargee. Ouvre le fichier pour impression ou enregistrement en PDF.");
 }
 
+
+function createAnalysisLot(type) {
+  const label = type === "Local commercial" ? "Local commercial" : type === "Appartement" ? "Appartement" : "Lot";
+  return {
+    id: crypto.randomUUID(),
+    label,
+    type: type || "Appartement",
+    surface: 0,
+    saleSqm: 0,
+    rentSqm: 0,
+    currentRent: 0,
+    status: "Loué"
+  };
+}
+
+function addAnalysisLot(type) {
+  analysisLots.push(createAnalysisLot(type));
+  renderLotsTable();
+}
+
+function removeAnalysisLot(id) {
+  analysisLots = analysisLots.filter((lot) => lot.id !== id);
+  renderLotsTable();
+}
+
+function lotComputed(lot) {
+  const surface = Number(lot.surface) || 0;
+  const saleSqm = Number(lot.saleSqm) || 0;
+  const rentSqm = Number(lot.rentSqm) || 0;
+  const currentRent = Number(lot.currentRent) || 0;
+  const saleValue = Math.round(surface * saleSqm);
+  const marketRent = Math.round(surface * rentSqm);
+  const rentUsed = currentRent > 0 ? currentRent : marketRent;
+  return { surface, saleSqm, rentSqm, currentRent, saleValue, marketRent, rentUsed };
+}
+
+function lotsSummary() {
+  const rows = analysisLots.map((lot) => ({ lot, computed: lotComputed(lot) }));
+  const totalSurface = rows.reduce((sum, row) => sum + row.computed.surface, 0);
+  const totalSaleValue = rows.reduce((sum, row) => sum + row.computed.saleValue, 0);
+  const totalMonthlyRent = rows.reduce((sum, row) => sum + row.computed.rentUsed, 0);
+  const totalMarketMonthlyRent = rows.reduce((sum, row) => sum + row.computed.marketRent, 0);
+  const annualRent = totalMonthlyRent * 12;
+  const grossYield = totalSaleValue ? Math.round((annualRent / totalSaleValue) * 1000) / 10 : 0;
+  return { rows, totalSurface, totalSaleValue, totalMonthlyRent, totalMarketMonthlyRent, annualRent, grossYield };
+}
+
+function renderLotsSummary() {
+  const target = document.querySelector("#lotsSummary");
+  if (!target) return;
+  const summary = lotsSummary();
+  target.innerHTML = `
+    <span>Surface totale</span><strong>${summary.totalSurface} m2</strong>
+    <span>Valeur vénale estimée</span><strong>${formatExactMoney(summary.totalSaleValue)}</strong>
+    <span>Loyers mensuels retenus</span><strong>${formatExactMoney(summary.totalMonthlyRent)}</strong>
+    <span>Rendement brut</span><strong>${summary.grossYield}%</strong>
+  `;
+}
+
+function renderLotsTable() {
+  const body = document.querySelector("#lotsTableBody");
+  if (!body) return;
+  body.innerHTML = analysisLots.length
+    ? analysisLots.map((lot) => `
+      <tr data-lot-row="${lot.id}">
+        <td><input type="text" data-lot-field="label" data-lot-id="${lot.id}" value="${htmlEscape(lot.label)}" placeholder="Lot 1"></td>
+        <td>
+          <select data-lot-field="type" data-lot-id="${lot.id}">
+            ${["Appartement", "Local commercial", "Autre"].map((opt) => `<option value="${opt}" ${lot.type === opt ? "selected" : ""}>${opt}</option>`).join("")}
+          </select>
+        </td>
+        <td><input type="number" data-lot-field="surface" data-lot-id="${lot.id}" value="${lot.surface || 0}"></td>
+        <td><input type="number" data-lot-field="saleSqm" data-lot-id="${lot.id}" value="${lot.saleSqm || 0}"></td>
+        <td><input type="number" data-lot-field="rentSqm" data-lot-id="${lot.id}" value="${lot.rentSqm || 0}"></td>
+        <td><input type="number" data-lot-field="currentRent" data-lot-id="${lot.id}" value="${lot.currentRent || 0}"></td>
+        <td>
+          <select data-lot-field="status" data-lot-id="${lot.id}">
+            ${["Loué", "Vacant", "Occupé propriétaire"].map((opt) => `<option value="${opt}" ${lot.status === opt ? "selected" : ""}>${opt}</option>`).join("")}
+          </select>
+        </td>
+        <td><button type="button" class="ghost-button" data-remove-lot="${lot.id}">Suppr.</button></td>
+      </tr>
+    `).join("")
+    : `<tr><td colspan="8" class="lots-empty">Aucun lot. Ajoute un appartement ou un local commercial ci-dessous.</td></tr>`;
+  renderLotsSummary();
+}
+
+function buildAvisValeurHtml(kind) {
+  const isVente = kind === "vente";
+  const address = document.querySelector("#analysisAddress")?.value || "";
+  const addressExtra = document.querySelector("#analysisAddressExtra")?.value || "";
+  const city = document.querySelector("#analysisCity")?.value || "";
+  const postcode = document.querySelector("#analysisPostcode")?.value || "";
+  const cadastre = document.querySelector("#analysisCadastre")?.value || "";
+  const client = getAnalysisClient();
+  const clientName = client?.name || document.querySelector("#analysisClientName")?.value || "";
+  const preparedDate = new Date().toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
+  const summary = lotsSummary();
+  const fullAddress = [address, addressExtra].filter(Boolean).join(" - ");
+  const title = isVente ? "Avis de valeur - Vente" : "Avis de valeur - Locatif";
+  const rentPerSqmAvg = summary.totalSurface ? Math.round((summary.totalMonthlyRent / summary.totalSurface) * 10) / 10 : 0;
+  const tensionScore = estimateRentalTension(address || fullAddress || "", "Immeuble de rapport", rentPerSqmAvg);
+  const lowValue = Math.round(summary.totalSaleValue * 0.92);
+  const highValue = Math.round(summary.totalSaleValue * 1.08);
+
+  const rows = summary.rows.length
+    ? summary.rows.map(({ lot, computed }) => isVente
+      ? `<tr><td>${htmlEscape(lot.label || lot.type)}</td><td>${htmlEscape(lot.type)}</td><td>${computed.surface} m2</td><td>${formatExactMoney(computed.saleSqm)}/m2</td><td>${formatExactMoney(computed.saleValue)}</td></tr>`
+      : `<tr><td>${htmlEscape(lot.label || lot.type)}</td><td>${htmlEscape(lot.type)}</td><td>${computed.surface} m2</td><td>${htmlEscape(lot.status)}</td><td>${formatExactMoney(computed.rentUsed)}</td><td>${formatExactMoney(computed.marketRent)}</td></tr>`
+    ).join("")
+    : `<tr><td colspan="6">Aucun lot renseigné.</td></tr>`;
+
+  const tableHead = isVente
+    ? `<tr><th>Lot</th><th>Type</th><th>Surface</th><th>Prix marché</th><th>Valeur estimée</th></tr>`
+    : `<tr><th>Lot</th><th>Type</th><th>Surface</th><th>Statut</th><th>Loyer retenu</th><th>Loyer marché EUR/m2</th></tr>`;
+
+  const html = `
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <title>${htmlEscape(title)} - ${htmlEscape(fullAddress || "Immeuble")}</title>
+        <style>
+          body{margin:0;padding:28px;background:#f5f8f3;color:#16211e;font-family:Arial,Helvetica,sans-serif}
+          .sheet{max-width:800px;margin:0 auto;background:#fff;border:1px solid #dce4dd;border-radius:12px;overflow:hidden}
+          .cover{padding:32px 40px 26px;background:#fff;border-bottom:4px solid #0c7a69}
+          .cover .brand{margin-bottom:20px}
+          .cover .brand img{height:64px;display:block}
+          .cover .eyebrow{font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#07594d;margin:0 0 6px}
+          .cover h1{font-size:26px;margin:0 0 8px;color:#16211e}
+          .cover .sub{font-size:13px;color:#5c6b64;margin:0}
+          .body{padding:26px 40px 30px}
+          .kpi-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:26px}
+          .kpi{background:#f5f8f3;border:1px solid #dce4dd;border-radius:10px;padding:12px 14px}
+          .kpi .l{font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#8b978f;margin-bottom:6px}
+          .kpi .v{font-size:19px;font-weight:800;color:#16211e}
+          h2{font-size:17px;margin:0 0 4px;color:#16211e}
+          .section-eyebrow{font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#07594d;margin:0 0 4px}
+          section{margin-bottom:24px}
+          .lots-table{width:100%;border-collapse:collapse;font-size:12px;margin-top:8px}
+          .lots-table th{text-align:left;padding:8px 6px;color:#5c6b64;font-weight:700;border-bottom:1px solid #dce4dd;font-size:10.5px;text-transform:uppercase;letter-spacing:.03em}
+          .lots-table td{padding:8px 6px;border-bottom:1px solid #eef2ee}
+          .model-grid{display:grid;grid-template-columns:1fr auto;gap:8px 14px;font-size:12.5px}
+          .model-grid span{color:#5c6b64}
+          .model-grid strong{font-weight:800;color:#16211e;text-align:right}
+          .closing{background:#e6f2ee;border-radius:10px;padding:16px 18px;color:#07594d;font-size:12px;line-height:1.5}
+          .closing strong{display:block;font-size:13px;font-weight:800;margin-bottom:4px}
+          .footer{padding:14px 40px;border-top:1px solid #dce4dd;display:flex;justify-content:space-between;font-size:10.5px;color:#8b978f}
+          @media print{body{padding:0;background:#fff}.sheet{border:0;border-radius:0}}
+        </style>
+      </head>
+      <body>
+        <div class="sheet">
+          <div class="cover">
+            <div class="brand"><img src="${LAMINIERE_LOGO_DATA_URL}" alt="LaMinière"></div>
+            <p class="eyebrow">${htmlEscape(title)}</p>
+            <h1>${htmlEscape(fullAddress || "Adresse à compléter")}</h1>
+            <p class="sub">${htmlEscape([postcode, city].filter(Boolean).join(" "))}${cadastre ? ` · Cadastre ${htmlEscape(cadastre)}` : ""}</p>
+            <p class="sub">Préparé ${clientName ? `pour ${htmlEscape(clientName)} ` : ""}le ${preparedDate}</p>
+          </div>
+          <div class="body">
+            ${isVente ? `
+            <div class="kpi-row">
+              <div class="kpi"><div class="l">Surface totale</div><div class="v">${summary.totalSurface} m2</div></div>
+              <div class="kpi"><div class="l">Valeur vénale estimée</div><div class="v">${formatExactMoney(summary.totalSaleValue)}</div></div>
+              <div class="kpi"><div class="l">Fourchette</div><div class="v">${formatExactMoney(lowValue)} - ${formatExactMoney(highValue)}</div></div>
+            </div>` : `
+            <div class="kpi-row">
+              <div class="kpi"><div class="l">Loyer mensuel retenu</div><div class="v">${formatExactMoney(summary.totalMonthlyRent)}</div></div>
+              <div class="kpi"><div class="l">Loyer annuel</div><div class="v">${formatExactMoney(summary.annualRent)}</div></div>
+              <div class="kpi"><div class="l">Tension locative</div><div class="v">${tensionScore}/100</div></div>
+            </div>`}
+            <section>
+              <p class="section-eyebrow">Composition de l'immeuble</p>
+              <h2>Détail par lot</h2>
+              <table class="lots-table">
+                <thead>${tableHead}</thead>
+                <tbody>${rows}</tbody>
+              </table>
+            </section>
+            <section>
+              <p class="section-eyebrow">Synthèse</p>
+              <h2>${isVente ? "Valorisation retenue" : "Rentabilité locative"}</h2>
+              <div class="model-grid">
+                ${isVente ? `
+                <span>Surface totale</span><strong>${summary.totalSurface} m2</strong>
+                <span>Valeur vénale estimée</span><strong>${formatExactMoney(summary.totalSaleValue)}</strong>
+                <span>Fourchette basse</span><strong>${formatExactMoney(lowValue)}</strong>
+                <span>Fourchette haute</span><strong>${formatExactMoney(highValue)}</strong>
+                <span>Rendement brut si loué</span><strong>${summary.grossYield}%</strong>
+                ` : `
+                <span>Loyer mensuel retenu</span><strong>${formatExactMoney(summary.totalMonthlyRent)}</strong>
+                <span>Loyer marché estimé</span><strong>${formatExactMoney(summary.totalMarketMonthlyRent)}</strong>
+                <span>Loyer annuel</span><strong>${formatExactMoney(summary.annualRent)}</strong>
+                <span>Valeur vénale des lots</span><strong>${formatExactMoney(summary.totalSaleValue)}</strong>
+                <span>Rendement brut</span><strong>${summary.grossYield}%</strong>
+                `}
+              </div>
+            </section>
+            <div class="closing">
+              <strong>Méthode et réserves</strong>
+              ${isVente
+                ? "Avis de valeur établi par comparaison avec les prix de marché au m2 renseignés par lot (vente). Il ne remplace pas une expertise contradictoire et doit être confirmé par les DVF récentes, l'état du bien et une visite."
+                : "Avis de valeur locative établi par comparaison avec les loyers de marché au m2 renseignés par lot. Loyers réels retenus quand connus, sinon estimation marché. À confirmer par les baux en cours et les annonces locatives du secteur."}
+            </div>
+          </div>
+          <div class="footer">
+            <span>LaMinière · laminiere.com</span>
+            <span>Document indicatif, non contractuel.</span>
+          </div>
+        </div>
+        <script>window.onload = () => { window.print(); };</script>
+      </body>
+    </html>
+  `;
+  return { html, safeTitle: safeFilename(fullAddress || "immeuble") };
+}
+
+function printAvisValeurVente() {
+  if (!analysisLots.length) {
+    showToast("Ajoute au moins un lot avant de générer l'avis de valeur.");
+    return;
+  }
+  const { html, safeTitle } = buildAvisValeurHtml("vente");
+  downloadTextFile(`avis-valeur-vente-${safeTitle}.html`, html, "text/html");
+  showToast("Avis de valeur vente téléchargé. Ouvre le fichier pour imprimer ou enregistrer en PDF.");
+}
+
+function printAvisValeurLocatif() {
+  if (!analysisLots.length) {
+    showToast("Ajoute au moins un lot avant de générer l'avis de valeur.");
+    return;
+  }
+  const { html, safeTitle } = buildAvisValeurHtml("locatif");
+  downloadTextFile(`avis-valeur-locatif-${safeTitle}.html`, html, "text/html");
+  showToast("Avis de valeur locatif téléchargé. Ouvre le fichier pour imprimer ou enregistrer en PDF.");
+}
+
 function createClientFromAnalysis() {
   const nameInput = document.querySelector("#analysisClientName");
   const name = nameInput?.value.trim();
@@ -5213,6 +5451,35 @@ document.querySelector("#exportAnalysisBank")?.addEventListener("click", exportA
 document.querySelector("#addAnalysisProject")?.addEventListener("click", addAnalysisProjectToMandate);
 document.querySelector("#printAnalysisBank")?.addEventListener("click", printAnalysisBankDossier);
 document.querySelector("#printClientFiche")?.addEventListener("click", printClientFiche);
+
+document.querySelector("#lotsTableBody")?.addEventListener("input", (event) => {
+  const field = event.target.dataset.lotField;
+  const id = event.target.dataset.lotId;
+  if (!field || !id) return;
+  const lot = analysisLots.find((item) => item.id === id);
+  if (!lot) return;
+  lot[field] = event.target.value;
+  renderLotsSummary();
+});
+document.querySelector("#lotsTableBody")?.addEventListener("change", (event) => {
+  const field = event.target.dataset.lotField;
+  const id = event.target.dataset.lotId;
+  if (!field || !id) return;
+  const lot = analysisLots.find((item) => item.id === id);
+  if (!lot) return;
+  lot[field] = event.target.value;
+  renderLotsSummary();
+});
+document.querySelector("#lotsTableBody")?.addEventListener("click", (event) => {
+  const removeId = event.target.closest("[data-remove-lot]")?.dataset.removeLot;
+  if (removeId) removeAnalysisLot(removeId);
+});
+document.querySelector("#addLotApartment")?.addEventListener("click", () => addAnalysisLot("Appartement"));
+document.querySelector("#addLotCommercial")?.addEventListener("click", () => addAnalysisLot("Local commercial"));
+document.querySelector("#addLotOther")?.addEventListener("click", () => addAnalysisLot("Autre"));
+document.querySelector("#printAvisValeurVente")?.addEventListener("click", printAvisValeurVente);
+document.querySelector("#printAvisValeurLocatif")?.addEventListener("click", printAvisValeurLocatif);
+renderLotsTable();
 document.querySelector("#applyWorksTotal")?.addEventListener("click", () => {
   const total = worksBreakdownTotal();
   document.querySelector("#analysisWorks").value = Math.round(total);

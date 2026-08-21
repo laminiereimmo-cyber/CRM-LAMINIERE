@@ -371,6 +371,14 @@
               <span data-icon="file-down"></span>
               Fiche client
             </button>
+            <button class="ghost-button" id="printAvisValeurVente" type="button">
+              <span data-icon="file-down"></span>
+              Avis de valeur vente
+            </button>
+            <button class="ghost-button" id="printAvisValeurLocatif" type="button">
+              <span data-icon="file-down"></span>
+              Avis de valeur locatif
+            </button>
           </div>
           <section class="panel analysis-panel">
             <div class="analysis-form">
@@ -573,6 +581,44 @@
               <input id="analysisLat" type="hidden" />
               <input id="analysisLon" type="hidden" />
               <input id="analysisCity" type="hidden" />
+              <div class="lots-estimator full" id="lotsPanel">
+                <div class="linked-fee-heading">
+                  <span>Avis de valeur — lots de l'immeuble</span>
+                  <small>Ajoute chaque lot (appartement, local commercial...) pour générer l'avis de valeur vente et l'avis de valeur locatif de l'immeuble entier.</small>
+                </div>
+                <div class="lots-table-wrap">
+                  <table class="lots-table">
+                    <thead>
+                      <tr>
+                        <th>Désignation</th>
+                        <th>Type</th>
+                        <th>Surface m2</th>
+                        <th>Prix marché EUR/m2</th>
+                        <th>Loyer marché EUR/m2/mois</th>
+                        <th>Loyer actuel EUR/mois</th>
+                        <th>Statut</th>
+                        <th></th>
+                      </tr>
+                    </thead>
+                    <tbody id="lotsTableBody"></tbody>
+                  </table>
+                </div>
+                <div class="lots-actions">
+                  <button class="ghost-button" id="addLotApartment" type="button">
+                    <span data-icon="plus"></span>
+                    Ajouter un appartement
+                  </button>
+                  <button class="ghost-button" id="addLotCommercial" type="button">
+                    <span data-icon="plus"></span>
+                    Ajouter un local commercial
+                  </button>
+                  <button class="ghost-button" id="addLotOther" type="button">
+                    <span data-icon="plus"></span>
+                    Autre lot
+                  </button>
+                </div>
+                <div class="model-grid lots-summary" id="lotsSummary"></div>
+              </div>
             </div>
           </section>
           <div class="analysis-grid" id="analysisResults"></div>
