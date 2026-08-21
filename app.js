@@ -4474,7 +4474,7 @@ function printClientFiche() {
           </div>
           <div class="footer-legal">SAS LA MINIÈRE · 100 Route de Nîmes, L'Atrium, 30132 Caissargues · RCS Nîmes 933 989 402 · Carte professionnelle n°CPI 3002 2026 0000 0002 délivrée par CCI de Nîmes</div>
           <div class="footer">
-            <span>Gabriel VALETTE · 06 07 16 15 22 · contact@laminiere.fr</span>
+            <span>Gabriel VALETTE · 06 07 16 15 22 · contact@laminiere.com</span>
             <span>Document indicatif, à confirmer par le notaire et la banque.</span>
           </div>
         </div>
@@ -4647,12 +4647,13 @@ const LAMINIERE_LEGAL = {
   carteLigne2: "délivrée par CCI de Nîmes",
   conseillerName: "Gabriel VALETTE",
   conseillerPhone: "06 07 16 15 22",
-  conseillerEmail: "contact@laminiere.fr",
+  conseillerEmail: "contact@laminiere.com",
   villeSignature: "CAISSARGUES"
 };
 
 function formatEuroSymbol(value) {
-  return new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(Math.round(value || 0)) + "€";
+  const formatted = new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(Math.round(value || 0));
+  return formatted.replace(/[  ]/g, " ") + "€";
 }
 
 function buildAvisValeurPdf(kind) {
@@ -4698,7 +4699,7 @@ function buildAvisValeurPdf(kind) {
     y += 4.6;
   });
 
-  const logoSize = 30;
+  const logoSize = 42;
   try {
     doc.addImage(LAMINIERE_LOGO_DATA_URL, "PNG", pageWidth - marginX - logoSize, 16, logoSize, logoSize);
   } catch (error) {
