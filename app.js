@@ -4579,6 +4579,7 @@ function buildAvisValeurHtml(kind) {
   const city = document.querySelector("#analysisCity")?.value || "";
   const postcode = document.querySelector("#analysisPostcode")?.value || "";
   const cadastre = document.querySelector("#analysisCadastre")?.value || "";
+  const description = document.querySelector("#analysisDescription")?.value || "";
   const client = getAnalysisClient();
   const clientName = client?.name || document.querySelector("#analysisClientName")?.value || "";
   const preparedDate = new Date().toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
@@ -4589,6 +4590,7 @@ function buildAvisValeurHtml(kind) {
   const tensionScore = estimateRentalTension(address || fullAddress || "", "Immeuble de rapport", rentPerSqmAvg);
   const lowValue = Math.round(summary.totalSaleValue * 0.92);
   const highValue = Math.round(summary.totalSaleValue * 1.08);
+  const avgPriceSqm = summary.totalSurface ? Math.round(summary.totalSaleValue / summary.totalSurface) : 0;
 
   const rows = summary.rows.length
     ? summary.rows.map(({ lot, computed }) => isVente
@@ -4601,36 +4603,69 @@ function buildAvisValeurHtml(kind) {
     ? `<tr><th>Lot</th><th>Type</th><th>Surface</th><th>Prix marché</th><th>Valeur estimée</th></tr>`
     : `<tr><th>Lot</th><th>Type</th><th>Surface</th><th>Statut</th><th>Loyer retenu</th><th>Loyer marché EUR/m2</th></tr>`;
 
+  const verdictBlock = isVente
+    ? `
+      <div class="verdict">
+        <span class="verdict-label">Valeur vénale retenue</span>
+        <strong class="verdict-value">${formatExactMoney(summary.totalSaleValue)}</strong>
+        <span class="verdict-range">Fourchette ${formatExactMoney(lowValue)} — ${formatExactMoney(highValue)}</span>
+      </div>
+      <div class="model-grid">
+        <span>Surface totale</span><strong>${summary.totalSurface} m2</strong>
+        <span>Prix moyen pondéré</span><strong>${formatExactMoney(avgPriceSqm)}/m2</strong>
+        <span>Rendement brut si loué</span><strong>${summary.grossYield}%</strong>
+      </div>`
+    : `
+      <div class="verdict">
+        <span class="verdict-label">Loyer mensuel retenu</span>
+        <strong class="verdict-value">${formatExactMoney(summary.totalMonthlyRent)}</strong>
+        <span class="verdict-range">Loyer annuel ${formatExactMoney(summary.annualRent)} · Tension locative ${tensionScore}/100</span>
+      </div>
+      <div class="model-grid">
+        <span>Loyer marché estimé</span><strong>${formatExactMoney(summary.totalMarketMonthlyRent)}</strong>
+        <span>Valeur vénale des lots</span><strong>${formatExactMoney(summary.totalSaleValue)}</strong>
+        <span>Rendement brut</span><strong>${summary.grossYield}%</strong>
+      </div>`;
+
   const html = `
     <html>
       <head>
         <meta charset="utf-8">
         <title>${htmlEscape(title)} - ${htmlEscape(fullAddress || "Immeuble")}</title>
         <style>
+          @page{margin:14mm 12mm}
           body{margin:0;padding:28px;background:#f5f8f3;color:#16211e;font-family:Arial,Helvetica,sans-serif}
           .sheet{max-width:800px;margin:0 auto;background:#fff;border:1px solid #dce4dd;border-radius:12px;overflow:hidden}
           .cover{padding:32px 40px 26px;background:#fff;border-bottom:4px solid #0c7a69}
           .cover .brand{margin-bottom:20px}
           .cover .brand img{height:64px;display:block}
           .cover .eyebrow{font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#07594d;margin:0 0 6px}
-          .cover h1{font-size:26px;margin:0 0 8px;color:#16211e}
+          .cover h1{font-size:25px;margin:0 0 8px;color:#16211e}
           .cover .sub{font-size:13px;color:#5c6b64;margin:0}
           .body{padding:26px 40px 30px}
-          .kpi-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:26px}
-          .kpi{background:#f5f8f3;border:1px solid #dce4dd;border-radius:10px;padding:12px 14px}
-          .kpi .l{font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#8b978f;margin-bottom:6px}
-          .kpi .v{font-size:19px;font-weight:800;color:#16211e}
-          h2{font-size:17px;margin:0 0 4px;color:#16211e}
+          .verdict{background:linear-gradient(135deg,#0c7a69,#0a6558);border-radius:12px;padding:20px 22px;margin-bottom:14px;color:#fff}
+          .verdict-label{display:block;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;opacity:.85;margin-bottom:6px}
+          .verdict-value{display:block;font-size:30px;font-weight:800;margin-bottom:6px}
+          .verdict-range{display:block;font-size:12.5px;opacity:.92}
+          h2{font-size:16px;margin:0 0 4px;color:#16211e}
           .section-eyebrow{font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#07594d;margin:0 0 4px}
-          section{margin-bottom:24px}
-          .lots-table{width:100%;border-collapse:collapse;font-size:12px;margin-top:8px}
-          .lots-table th{text-align:left;padding:8px 6px;color:#5c6b64;font-weight:700;border-bottom:1px solid #dce4dd;font-size:10.5px;text-transform:uppercase;letter-spacing:.03em}
-          .lots-table td{padding:8px 6px;border-bottom:1px solid #eef2ee}
-          .model-grid{display:grid;grid-template-columns:1fr auto;gap:8px 14px;font-size:12.5px}
+          section{margin-bottom:22px}
+          .section-intro{color:#5c6b64;font-size:12.5px;margin:6px 0 0;line-height:1.5}
+          .table-card{border:1px solid #dce4dd;border-radius:10px;overflow:hidden;margin-top:8px}
+          .lots-table{width:100%;border-collapse:collapse;font-size:12px}
+          .lots-table th{text-align:left;padding:9px 10px;color:#07594d;font-weight:700;background:#eef4ee;font-size:10.5px;text-transform:uppercase;letter-spacing:.03em;border-bottom:1px solid #dce4dd}
+          .lots-table td{padding:9px 10px;border-bottom:1px solid #eef2ee}
+          .lots-table tbody tr:last-child td{border-bottom:0}
+          .lots-table tbody tr:nth-child(even){background:#fafcfa}
+          .model-grid{display:grid;grid-template-columns:1fr auto;gap:8px 14px;font-size:12.5px;padding:14px 4px 0}
           .model-grid span{color:#5c6b64}
           .model-grid strong{font-weight:800;color:#16211e;text-align:right}
-          .closing{background:#e6f2ee;border-radius:10px;padding:16px 18px;color:#07594d;font-size:12px;line-height:1.5}
+          .closing{background:#e6f2ee;border-radius:10px;padding:16px 18px;color:#07594d;font-size:12px;line-height:1.55}
           .closing strong{display:block;font-size:13px;font-weight:800;margin-bottom:4px}
+          .signature-row{display:flex;align-items:flex-end;justify-content:space-between;margin-top:22px;padding-top:16px;border-top:1px solid #eef2ee}
+          .signature-row strong{display:block;font-size:13px;color:#16211e}
+          .signature-row span{display:block;font-size:11.5px;color:#5c6b64;margin-top:2px}
+          .signature-date{font-size:11.5px;color:#8b978f}
           .footer{padding:14px 40px;border-top:1px solid #dce4dd;display:flex;justify-content:space-between;font-size:10.5px;color:#8b978f}
           @media print{body{padding:0;background:#fff}.sheet{border:0;border-radius:0}}
         </style>
@@ -4645,42 +4680,21 @@ function buildAvisValeurHtml(kind) {
             <p class="sub">Préparé ${clientName ? `pour ${htmlEscape(clientName)} ` : ""}le ${preparedDate}</p>
           </div>
           <div class="body">
-            ${isVente ? `
-            <div class="kpi-row">
-              <div class="kpi"><div class="l">Surface totale</div><div class="v">${summary.totalSurface} m2</div></div>
-              <div class="kpi"><div class="l">Valeur vénale estimée</div><div class="v">${formatExactMoney(summary.totalSaleValue)}</div></div>
-              <div class="kpi"><div class="l">Fourchette</div><div class="v">${formatExactMoney(lowValue)} - ${formatExactMoney(highValue)}</div></div>
-            </div>` : `
-            <div class="kpi-row">
-              <div class="kpi"><div class="l">Loyer mensuel retenu</div><div class="v">${formatExactMoney(summary.totalMonthlyRent)}</div></div>
-              <div class="kpi"><div class="l">Loyer annuel</div><div class="v">${formatExactMoney(summary.annualRent)}</div></div>
-              <div class="kpi"><div class="l">Tension locative</div><div class="v">${tensionScore}/100</div></div>
-            </div>`}
+            ${verdictBlock}
+            ${description ? `
+            <section>
+              <p class="section-eyebrow">Le bien</p>
+              <h2>Description</h2>
+              <p class="section-intro">${htmlEscape(description).replaceAll(String.fromCharCode(10), "<br>")}</p>
+            </section>` : ""}
             <section>
               <p class="section-eyebrow">Composition de l'immeuble</p>
               <h2>Détail par lot</h2>
-              <table class="lots-table">
-                <thead>${tableHead}</thead>
-                <tbody>${rows}</tbody>
-              </table>
-            </section>
-            <section>
-              <p class="section-eyebrow">Synthèse</p>
-              <h2>${isVente ? "Valorisation retenue" : "Rentabilité locative"}</h2>
-              <div class="model-grid">
-                ${isVente ? `
-                <span>Surface totale</span><strong>${summary.totalSurface} m2</strong>
-                <span>Valeur vénale estimée</span><strong>${formatExactMoney(summary.totalSaleValue)}</strong>
-                <span>Fourchette basse</span><strong>${formatExactMoney(lowValue)}</strong>
-                <span>Fourchette haute</span><strong>${formatExactMoney(highValue)}</strong>
-                <span>Rendement brut si loué</span><strong>${summary.grossYield}%</strong>
-                ` : `
-                <span>Loyer mensuel retenu</span><strong>${formatExactMoney(summary.totalMonthlyRent)}</strong>
-                <span>Loyer marché estimé</span><strong>${formatExactMoney(summary.totalMarketMonthlyRent)}</strong>
-                <span>Loyer annuel</span><strong>${formatExactMoney(summary.annualRent)}</strong>
-                <span>Valeur vénale des lots</span><strong>${formatExactMoney(summary.totalSaleValue)}</strong>
-                <span>Rendement brut</span><strong>${summary.grossYield}%</strong>
-                `}
+              <div class="table-card">
+                <table class="lots-table">
+                  <thead>${tableHead}</thead>
+                  <tbody>${rows}</tbody>
+                </table>
               </div>
             </section>
             <div class="closing">
@@ -4688,6 +4702,14 @@ function buildAvisValeurHtml(kind) {
               ${isVente
                 ? "Avis de valeur établi par comparaison avec les prix de marché au m2 renseignés par lot (vente). Il ne remplace pas une expertise contradictoire et doit être confirmé par les DVF récentes, l'état du bien et une visite."
                 : "Avis de valeur locative établi par comparaison avec les loyers de marché au m2 renseignés par lot. Loyers réels retenus quand connus, sinon estimation marché. À confirmer par les baux en cours et les annonces locatives du secteur."}
+              Avis valable 3 mois à compter de la date d'émission.
+            </div>
+            <div class="signature-row">
+              <div>
+                <strong>Gabriel Valette</strong>
+                <span>LaMinière · laminiere.com</span>
+              </div>
+              <div class="signature-date">Fait le ${preparedDate}</div>
             </div>
           </div>
           <div class="footer">
@@ -4701,7 +4723,6 @@ function buildAvisValeurHtml(kind) {
   `;
   return { html, safeTitle: safeFilename(fullAddress || "immeuble") };
 }
-
 function printAvisValeurVente() {
   if (!analysisLots.length) {
     showToast("Ajoute au moins un lot avant de générer l'avis de valeur.");
