@@ -4415,7 +4415,7 @@ function printClientFiche() {
           .data-table td{text-align:right;padding:8px 0;font-weight:700;border-bottom:1px solid #dce4dd}
           .closing{background:#e6f2ee;border-radius:10px;padding:16px 18px;color:#07594d;font-size:12.5px;line-height:1.5}
           .closing strong{display:block;font-size:14px;font-weight:800;margin-bottom:4px}
-          .footer{padding:14px 40px;border-top:1px solid #dce4dd;display:flex;justify-content:space-between;font-size:10.5px;color:#8b978f}
+          .footer{padding:14px 40px;border-top:1px solid #dce4dd;display:flex;justify-content:space-between;font-size:10.5px;color:#8b978f}.footer-legal{padding:10px 40px;border-top:1px solid #dce4dd;font-size:9.5px;color:#8b978f;line-height:1.5}
           @media print{body{padding:0;background:#fff}.sheet{border:0;border-radius:0}}
         </style>
       </head>
@@ -4472,8 +4472,9 @@ function printClientFiche() {
               ${readingNote}
             </div>
           </div>
+          <div class="footer-legal">SAS LA MINIÈRE · 100 Route de Nîmes, L'Atrium, 30132 Caissargues · RCS Nîmes 933 989 402 · Carte professionnelle n°CPI 3002 2026 0000 0002 délivrée par CCI de Nîmes</div>
           <div class="footer">
-            <span>LaMinière · laminiere.com</span>
+            <span>Gabriel VALETTE · 06 07 16 15 22 · contact@laminiere.fr</span>
             <span>Document indicatif, à confirmer par le notaire et la banque.</span>
           </div>
         </div>
@@ -4654,7 +4655,10 @@ function formatEuroSymbol(value) {
   return new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(Math.round(value || 0)) + "€";
 }
 
-function buildAvisValeurHtml(kind) {
+function buildAvisValeurPdf(kind) {
+  if (!window.jspdf?.jsPDF) {
+    throw new Error("Librairie PDF non chargée. Vérifie la connexion puis recharge la page.");
+  }
   const isVente = kind === "vente";
   const address = document.querySelector("#analysisAddress")?.value || "";
   const addressExtra = document.querySelector("#analysisAddressExtra")?.value || "";
@@ -4663,112 +4667,151 @@ function buildAvisValeurHtml(kind) {
   const preparedDate = new Date().toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
   const summary = lotsSummary();
   const fullAddress = [address, addressExtra].filter(Boolean).join(" - ");
-  const title = "AVIS DE VALEUR";
   const subtitle = isVente ? "Estimation à la vente" : "Estimation locative";
-
-  const rows = summary.rows.length
-    ? summary.rows.map(({ lot, computed }) => `
-      <tr>
-        <td>
-          <span class="descriptif-title">${htmlEscape(lot.label || lot.type)}${computed.surface ? ` - ${computed.surface} m2` : ""}</span>
-          ${lot.details ? `<span class="descriptif-details">${htmlEscape(lot.details)}</span>` : ""}
-        </td>
-        <td class="value-cell">${formatEuroSymbol(isVente ? computed.saleValue : computed.rentUsed)}</td>
-      </tr>`).join("")
-    : `<tr><td colspan="2">Aucun lot renseigné.</td></tr>`;
-
   const totalValue = isVente ? summary.totalSaleValue : summary.totalMonthlyRent;
   const note = isVente
     ? "Cet avis correspond à une moyenne des prix constatés grâce à une étude comparative sur les biens du secteur."
     : "Cet avis correspond à une moyenne des loyers constatés grâce à une étude comparative sur les biens du secteur.";
 
-  const html = `
-    <html>
-      <head>
-        <meta charset="utf-8">
-        <title>${htmlEscape(title)} - ${htmlEscape(fullAddress || "Immeuble")}</title>
-        <style>
-          @page{margin:16mm 14mm}
-          body{margin:0;padding:24px;background:#e9ede9;color:#16211e;font-family:Arial,Helvetica,sans-serif;font-size:13px}
-          .sheet{max-width:720px;margin:0 auto;background:#fff;padding:34px 38px}
-          .letterhead{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;margin-bottom:26px}
-          .letterhead-info p{margin:0 0 2px;font-size:11.5px;line-height:1.45}
-          .letterhead-info .gap{height:14px}
-          .letterhead-logo img{width:160px;display:block}
-          .property-line{margin-bottom:22px;font-size:12.5px;line-height:1.5}
-          .property-line .label{display:block;margin-bottom:2px}
-          .property-line strong{font-weight:700}
-          .doc-title{text-align:center;font-size:19px;letter-spacing:.03em;margin:0 0 2px;color:#16211e}
-          .doc-subtitle{text-align:center;font-size:11px;color:#6b7a71;text-transform:uppercase;letter-spacing:.06em;margin:0 0 22px}
-          .valuation-table{width:100%;border-collapse:collapse;border:1px solid #16211e;margin-bottom:14px}
-          .valuation-table th{border:1px solid #16211e;padding:9px 12px;font-size:11.5px;font-weight:700;text-align:left;background:#f4f6f4}
-          .valuation-table th:last-child{text-align:center;width:130px}
-          .valuation-table td{border:1px solid #16211e;padding:12px}
-          .descriptif-title{display:block;font-weight:700;margin-bottom:3px}
-          .descriptif-details{display:block;color:#4d5951;font-size:11.5px}
-          .value-cell{text-align:center;vertical-align:middle;font-size:13px}
-          .total-row td{font-weight:700;text-align:center}
-          .total-row td:first-child{text-align:right}
-          .valuation-note{font-size:11px;color:#4d5951;line-height:1.5;margin:0 0 34px}
-          .sign-row{display:flex;justify-content:space-between;font-size:12px;margin-bottom:26px}
-          .signature-label{font-size:12px}
-          @media print{body{padding:0;background:#fff}.sheet{padding:0}}
-        </style>
-      </head>
-      <body>
-        <div class="sheet">
-          <div class="letterhead">
-            <div class="letterhead-info">
-              ${LAMINIERE_LEGAL.siegeLines.map((line) => `<p>${htmlEscape(line)}</p>`).join("")}
-              <p>${htmlEscape(LAMINIERE_LEGAL.rcs)}</p>
-              <p>${htmlEscape(LAMINIERE_LEGAL.carteLigne1)}</p>
-              <p>${htmlEscape(LAMINIERE_LEGAL.carteLigne2)}</p>
-              <div class="gap"></div>
-              <p>Votre conseiller : ${htmlEscape(LAMINIERE_LEGAL.conseillerName)}</p>
-              <p>Numéro de téléphone : ${htmlEscape(LAMINIERE_LEGAL.conseillerPhone)}</p>
-              <p>Adresse mail : ${htmlEscape(LAMINIERE_LEGAL.conseillerEmail)}</p>
-            </div>
-            <div class="letterhead-logo"><img src="${LAMINIERE_LOGO_DATA_URL}" alt="LaMinière"></div>
-          </div>
-          <div class="property-line">
-            <span class="label">Adresse du bien :</span>
-            <strong>${htmlEscape(address || "À compléter")}<br>${htmlEscape([postcode, city].filter(Boolean).join(" "))}</strong>
-          </div>
-          <h1 class="doc-title">${title}</h1>
-          <p class="doc-subtitle">${subtitle}</p>
-          <table class="valuation-table">
-            <thead>
-              <tr>
-                <th>Descriptif (descriptions des locaux, surface, équipements, etc.)</th>
-                <th>Avis de valeur</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${rows}
-              <tr class="total-row"><td>total :</td><td>${formatEuroSymbol(totalValue)}</td></tr>
-            </tbody>
-          </table>
-          <p class="valuation-note">${note}</p>
-          <div class="sign-row">
-            <span>Fait à ${htmlEscape(LAMINIERE_LEGAL.villeSignature)}</span>
-            <span>le ${preparedDate}</span>
-          </div>
-          <div class="signature-label">Signature :</div>
-        </div>
-        <script>window.onload = () => { window.print(); };</script>
-      </body>
-    </html>
-  `;
-  return { html, safeTitle: safeFilename(fullAddress || "immeuble") };
+  const doc = new window.jspdf.jsPDF({ unit: "mm", format: "a4" });
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const marginX = 16;
+  const ink = [22, 33, 30];
+  const muted = [77, 89, 81];
+  let y = 20;
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9.5);
+  doc.setTextColor(...ink);
+  const letterheadLines = [
+    ...LAMINIERE_LEGAL.siegeLines,
+    LAMINIERE_LEGAL.rcs,
+    LAMINIERE_LEGAL.carteLigne1,
+    LAMINIERE_LEGAL.carteLigne2,
+    "",
+    `Votre conseiller : ${LAMINIERE_LEGAL.conseillerName}`,
+    `Numéro de téléphone : ${LAMINIERE_LEGAL.conseillerPhone}`,
+    `Adresse mail : ${LAMINIERE_LEGAL.conseillerEmail}`
+  ];
+  letterheadLines.forEach((line) => {
+    if (line) doc.text(line, marginX, y);
+    y += 4.6;
+  });
+
+  const logoSize = 30;
+  try {
+    doc.addImage(LAMINIERE_LOGO_DATA_URL, "PNG", pageWidth - marginX - logoSize, 16, logoSize, logoSize);
+  } catch (error) {
+    /* logo optional, continue without it if embedding fails */
+  }
+
+  y = Math.max(y, 16 + logoSize) + 9;
+
+  doc.setFontSize(9.5);
+  doc.text("Adresse du bien :", marginX, y);
+  y += 5.4;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(11.5);
+  doc.text(address || "À compléter", marginX, y);
+  y += 5.8;
+  const cityLine = [postcode, city].filter(Boolean).join(" ");
+  if (cityLine) doc.text(cityLine, marginX, y);
+  y += 13;
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(18);
+  doc.setTextColor(...ink);
+  doc.text("AVIS DE VALEUR", pageWidth / 2, y, { align: "center" });
+  y += 6.5;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9.5);
+  doc.setTextColor(...muted);
+  doc.text(subtitle.toUpperCase(), pageWidth / 2, y, { align: "center" });
+  y += 9;
+  doc.setTextColor(...ink);
+
+  const bodyRows = summary.rows.length
+    ? summary.rows.map(({ lot, computed }) => {
+      const titleLine = `${lot.label || lot.type}${computed.surface ? ` - ${computed.surface} m2` : ""}`;
+      const detailLine = lot.details || "";
+      return [{ titleLine, detailLine }, formatEuroSymbol(isVente ? computed.saleValue : computed.rentUsed)];
+    })
+    : [["Aucun lot renseigné.", ""]];
+
+  const valueColWidth = 34;
+  doc.autoTable({
+    startY: y,
+    head: [["Descriptif (descriptions des locaux, surface, équipements, etc.)", "Avis de valeur"]],
+    body: bodyRows,
+    foot: [["total :", formatEuroSymbol(totalValue)]],
+    theme: "grid",
+    styles: { font: "helvetica", fontSize: 9, cellPadding: 3, lineColor: ink, lineWidth: 0.25, textColor: ink, valign: "middle" },
+    headStyles: { fillColor: [244, 246, 244], fontStyle: "bold", textColor: ink },
+    footStyles: { fillColor: [255, 255, 255], fontStyle: "bold", textColor: ink, halign: "center" },
+    columnStyles: {
+      0: { cellWidth: pageWidth - 2 * marginX - valueColWidth },
+      1: { cellWidth: valueColWidth, halign: "center" }
+    },
+    margin: { left: marginX, right: marginX },
+    didParseCell: (data) => {
+      if (data.section === "body" && data.column.index === 0 && data.cell.raw && typeof data.cell.raw === "object") {
+        data.cell.text = [];
+      }
+    },
+    didDrawCell: (data) => {
+      if (data.section !== "body" || data.column.index !== 0 || !data.cell.raw || typeof data.cell.raw !== "object") return;
+      const { titleLine, detailLine } = data.cell.raw;
+      const padding = typeof data.cell.padding === "function" ? data.cell.padding("left") : 3;
+      const textX = data.cell.x + padding;
+      const availableWidth = data.cell.width - padding * 2;
+      let textY = data.cell.y + padding + 2.4;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9);
+      doc.setTextColor(...ink);
+      doc.text(titleLine, textX, textY);
+      if (detailLine) {
+        textY += 4.3;
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8.5);
+        doc.setTextColor(...muted);
+        const wrapped = doc.splitTextToSize(detailLine, availableWidth);
+        doc.text(wrapped, textX, textY);
+      }
+      doc.setTextColor(...ink);
+    }
+  });
+
+  let finalY = doc.lastAutoTable.finalY + 9;
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8.5);
+  doc.setTextColor(...muted);
+  const wrappedNote = doc.splitTextToSize(note, pageWidth - 2 * marginX);
+  doc.text(wrappedNote, marginX, finalY);
+  finalY += wrappedNote.length * 4 + 16;
+  doc.setTextColor(...ink);
+
+  doc.setFontSize(10);
+  doc.text(`Fait à ${LAMINIERE_LEGAL.villeSignature}`, marginX, finalY);
+  doc.text(`le ${preparedDate}`, pageWidth - marginX, finalY, { align: "right" });
+  finalY += 11;
+  doc.text("Signature :", marginX, finalY);
+
+  return { doc, safeTitle: safeFilename(fullAddress || "immeuble") };
 }
+
 function printAvisValeurVente() {
   if (!analysisLots.length) {
     showToast("Ajoute au moins un lot avant de générer l'avis de valeur.");
     return;
   }
-  const { html, safeTitle } = buildAvisValeurHtml("vente");
-  downloadTextFile(`avis-valeur-vente-${safeTitle}.html`, html, "text/html");
-  showToast("Avis de valeur vente téléchargé. Ouvre le fichier pour imprimer ou enregistrer en PDF.");
+  try {
+    const { doc, safeTitle } = buildAvisValeurPdf("vente");
+    doc.save(`avis-valeur-vente-${safeTitle}.pdf`);
+    showToast("Avis de valeur vente (PDF) téléchargé.");
+  } catch (error) {
+    showToast(error.message || "Impossible de générer le PDF pour le moment.");
+  }
 }
 
 function printAvisValeurLocatif() {
@@ -4776,11 +4819,14 @@ function printAvisValeurLocatif() {
     showToast("Ajoute au moins un lot avant de générer l'avis de valeur.");
     return;
   }
-  const { html, safeTitle } = buildAvisValeurHtml("locatif");
-  downloadTextFile(`avis-valeur-locatif-${safeTitle}.html`, html, "text/html");
-  showToast("Avis de valeur locatif téléchargé. Ouvre le fichier pour imprimer ou enregistrer en PDF.");
+  try {
+    const { doc, safeTitle } = buildAvisValeurPdf("locatif");
+    doc.save(`avis-valeur-locatif-${safeTitle}.pdf`);
+    showToast("Avis de valeur locatif (PDF) téléchargé.");
+  } catch (error) {
+    showToast(error.message || "Impossible de générer le PDF pour le moment.");
+  }
 }
-
 function createClientFromAnalysis() {
   const nameInput = document.querySelector("#analysisClientName");
   const name = nameInput?.value.trim();
