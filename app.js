@@ -4488,12 +4488,13 @@ function printClientFiche() {
 
 function createAnalysisLot(type) {
   const label = type === "Local commercial" ? "Local commercial" : type === "Appartement" ? "Appartement" : "Lot";
+  const sectorPriceSqm = readNumber("analysisMarketPriceSqm");
   return {
     id: crypto.randomUUID(),
     label,
     type: type || "Appartement",
     surface: 0,
-    saleSqm: 0,
+    saleSqm: type === "Appartement" && sectorPriceSqm ? sectorPriceSqm : 0,
     rentSqm: 0,
     currentRent: 0,
     status: "Loué"
@@ -4572,6 +4573,71 @@ function renderLotsTable() {
   renderLotsSummary();
 }
 
+function medianValue(numbers) {
+  const sorted = [...numbers].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+const DVF_TYPE_BY_LOT_TYPE = {
+  Appartement: "Appartement",
+  "Local commercial": "Local industriel. commercial ou assimilé"
+};
+
+async function fetchDvfMarketPrices() {
+  const lat = document.querySelector("#analysisLat")?.value;
+  const lon = document.querySelector("#analysisLon")?.value;
+  if (!lat || !lon) {
+    showToast("Choisis l'adresse dans la liste de suggestions (autocomplétion) pour pouvoir géolocaliser la recherche DVF.");
+    return;
+  }
+  if (!analysisLots.length) {
+    showToast("Ajoute au moins un lot avant de chercher les prix DVF.");
+    return;
+  }
+  showToast("Recherche des ventes DVF autour de l'adresse...");
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 7000);
+    const response = await fetch(`https://api.cquest.org/dvf?lat=${lat}&lon=${lon}&dist=400`, { signal: controller.signal });
+    clearTimeout(timeoutId);
+    if (!response.ok) throw new Error(`DVF HTTP ${response.status}`);
+    const data = await response.json();
+    const mutations = data.resultats || data.features || (Array.isArray(data) ? data : []);
+    const pricesByType = {};
+    mutations.forEach((entry) => {
+      const record = entry.properties || entry;
+      const type = record.type_local;
+      const valeur = Number(record.valeur_fonciere);
+      const surface = Number(record.surface_reelle_bati);
+      if (!type || !valeur || !surface) return;
+      const pricePerSqm = valeur / surface;
+      if (!Number.isFinite(pricePerSqm) || pricePerSqm <= 0) return;
+      if (!pricesByType[type]) pricesByType[type] = [];
+      pricesByType[type].push(pricePerSqm);
+    });
+    const foundTypes = Object.keys(pricesByType);
+    if (!foundTypes.length) {
+      showToast("Aucune vente DVF exploitable trouvée à proximité (secteur peu dense ou peu de ventes récentes).");
+      return;
+    }
+    let appliedCount = 0;
+    analysisLots.forEach((lot) => {
+      const dvfType = DVF_TYPE_BY_LOT_TYPE[lot.type];
+      const prices = dvfType ? pricesByType[dvfType] : null;
+      if (!prices || !prices.length) return;
+      lot.saleSqm = Math.round(medianValue(prices));
+      appliedCount += 1;
+    });
+    renderLotsTable();
+    const summary = foundTypes.map((type) => `${type} : ${Math.round(medianValue(pricesByType[type]))} EUR/m2 (${pricesByType[type].length} ventes)`).join(" · ");
+    showToast(appliedCount
+      ? `DVF appliqué sur ${appliedCount} lot(s). ${summary}`
+      : `Ventes DVF trouvées mais aucun type ne correspond aux lots. ${summary}`);
+  } catch (error) {
+    showToast("DVF indisponible pour le moment (API publique hors service ou surchargée) — utilise le lien manuel ci-dessous et ajuste le prix au m2 toi-même.");
+  }
+}
 function buildAvisValeurHtml(kind) {
   const isVente = kind === "vente";
   const address = document.querySelector("#analysisAddress")?.value || "";
@@ -5498,6 +5564,7 @@ document.querySelector("#lotsTableBody")?.addEventListener("click", (event) => {
 document.querySelector("#addLotApartment")?.addEventListener("click", () => addAnalysisLot("Appartement"));
 document.querySelector("#addLotCommercial")?.addEventListener("click", () => addAnalysisLot("Local commercial"));
 document.querySelector("#addLotOther")?.addEventListener("click", () => addAnalysisLot("Autre"));
+document.querySelector("#fetchDvfPrices")?.addEventListener("click", fetchDvfMarketPrices);
 document.querySelector("#printAvisValeurVente")?.addEventListener("click", printAvisValeurVente);
 document.querySelector("#printAvisValeurLocatif")?.addEventListener("click", printAvisValeurLocatif);
 renderLotsTable();

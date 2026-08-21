@@ -908,6 +908,16 @@ h2 {
   background: #eef4ef;
 }
 
+.lots-hint {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.lots-hint a {
+  color: var(--accent-dark);
+}
+
 .checkbox-field {
   display: grid;
   grid-template-columns: auto 1fr;
