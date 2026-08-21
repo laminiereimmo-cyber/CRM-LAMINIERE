@@ -4494,6 +4494,7 @@ function createAnalysisLot(type) {
     label,
     type: type || "Appartement",
     surface: 0,
+    details: "",
     saleSqm: type === "Appartement" && sectorPriceSqm ? sectorPriceSqm : 0,
     rentSqm: 0,
     currentRent: 0,
@@ -4558,6 +4559,7 @@ function renderLotsTable() {
           </select>
         </td>
         <td><input type="number" data-lot-field="surface" data-lot-id="${lot.id}" value="${lot.surface || 0}"></td>
+        <td><input type="text" data-lot-field="details" data-lot-id="${lot.id}" value="${htmlEscape(lot.details || "")}" placeholder="Hall d'entrée, pièce de vie, 2 chambres..."></td>
         <td><input type="number" data-lot-field="saleSqm" data-lot-id="${lot.id}" value="${lot.saleSqm || 0}"></td>
         <td><input type="number" data-lot-field="rentSqm" data-lot-id="${lot.id}" value="${lot.rentSqm || 0}"></td>
         <td><input type="number" data-lot-field="currentRent" data-lot-id="${lot.id}" value="${lot.currentRent || 0}"></td>
@@ -4569,10 +4571,9 @@ function renderLotsTable() {
         <td><button type="button" class="ghost-button" data-remove-lot="${lot.id}">Suppr.</button></td>
       </tr>
     `).join("")
-    : `<tr><td colspan="8" class="lots-empty">Aucun lot. Ajoute un appartement ou un local commercial ci-dessous.</td></tr>`;
+    : `<tr><td colspan="9" class="lots-empty">Aucun lot. Ajoute un appartement ou un local commercial ci-dessous.</td></tr>`;
   renderLotsSummary();
 }
-
 function medianValue(numbers) {
   const sorted = [...numbers].sort((a, b) => a - b);
   const mid = Math.floor(sorted.length / 2);
@@ -4638,60 +4639,48 @@ async function fetchDvfMarketPrices() {
     showToast("DVF indisponible pour le moment (API publique hors service ou surchargée) — utilise le lien manuel ci-dessous et ajuste le prix au m2 toi-même.");
   }
 }
+const LAMINIERE_LEGAL = {
+  siegeLines: ["100 Route de Nîmes", "L'Atrium", "30132 CAISSARGUES"],
+  rcs: "RCS Nîmes : 933 989 402",
+  carteLigne1: "Carte professionnelle n°CPI 3002 2026 0000 0002",
+  carteLigne2: "délivrée par CCI de Nîmes",
+  conseillerName: "Gabriel VALETTE",
+  conseillerPhone: "06 07 16 15 22",
+  conseillerEmail: "contact@laminiere.fr",
+  villeSignature: "CAISSARGUES"
+};
+
+function formatEuroSymbol(value) {
+  return new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(Math.round(value || 0)) + "€";
+}
+
 function buildAvisValeurHtml(kind) {
   const isVente = kind === "vente";
   const address = document.querySelector("#analysisAddress")?.value || "";
   const addressExtra = document.querySelector("#analysisAddressExtra")?.value || "";
   const city = document.querySelector("#analysisCity")?.value || "";
   const postcode = document.querySelector("#analysisPostcode")?.value || "";
-  const cadastre = document.querySelector("#analysisCadastre")?.value || "";
-  const description = document.querySelector("#analysisDescription")?.value || "";
-  const client = getAnalysisClient();
-  const clientName = client?.name || document.querySelector("#analysisClientName")?.value || "";
   const preparedDate = new Date().toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
   const summary = lotsSummary();
   const fullAddress = [address, addressExtra].filter(Boolean).join(" - ");
-  const title = isVente ? "Avis de valeur - Vente" : "Avis de valeur - Locatif";
-  const rentPerSqmAvg = summary.totalSurface ? Math.round((summary.totalMonthlyRent / summary.totalSurface) * 10) / 10 : 0;
-  const tensionScore = estimateRentalTension(address || fullAddress || "", "Immeuble de rapport", rentPerSqmAvg);
-  const lowValue = Math.round(summary.totalSaleValue * 0.92);
-  const highValue = Math.round(summary.totalSaleValue * 1.08);
-  const avgPriceSqm = summary.totalSurface ? Math.round(summary.totalSaleValue / summary.totalSurface) : 0;
+  const title = "AVIS DE VALEUR";
+  const subtitle = isVente ? "Estimation à la vente" : "Estimation locative";
 
   const rows = summary.rows.length
-    ? summary.rows.map(({ lot, computed }) => isVente
-      ? `<tr><td>${htmlEscape(lot.label || lot.type)}</td><td>${htmlEscape(lot.type)}</td><td>${computed.surface} m2</td><td>${formatExactMoney(computed.saleSqm)}/m2</td><td>${formatExactMoney(computed.saleValue)}</td></tr>`
-      : `<tr><td>${htmlEscape(lot.label || lot.type)}</td><td>${htmlEscape(lot.type)}</td><td>${computed.surface} m2</td><td>${htmlEscape(lot.status)}</td><td>${formatExactMoney(computed.rentUsed)}</td><td>${formatExactMoney(computed.marketRent)}</td></tr>`
-    ).join("")
-    : `<tr><td colspan="6">Aucun lot renseigné.</td></tr>`;
+    ? summary.rows.map(({ lot, computed }) => `
+      <tr>
+        <td>
+          <span class="descriptif-title">${htmlEscape(lot.label || lot.type)}${computed.surface ? ` - ${computed.surface} m2` : ""}</span>
+          ${lot.details ? `<span class="descriptif-details">${htmlEscape(lot.details)}</span>` : ""}
+        </td>
+        <td class="value-cell">${formatEuroSymbol(isVente ? computed.saleValue : computed.rentUsed)}</td>
+      </tr>`).join("")
+    : `<tr><td colspan="2">Aucun lot renseigné.</td></tr>`;
 
-  const tableHead = isVente
-    ? `<tr><th>Lot</th><th>Type</th><th>Surface</th><th>Prix marché</th><th>Valeur estimée</th></tr>`
-    : `<tr><th>Lot</th><th>Type</th><th>Surface</th><th>Statut</th><th>Loyer retenu</th><th>Loyer marché EUR/m2</th></tr>`;
-
-  const verdictBlock = isVente
-    ? `
-      <div class="verdict">
-        <span class="verdict-label">Valeur vénale retenue</span>
-        <strong class="verdict-value">${formatExactMoney(summary.totalSaleValue)}</strong>
-        <span class="verdict-range">Fourchette ${formatExactMoney(lowValue)} — ${formatExactMoney(highValue)}</span>
-      </div>
-      <div class="model-grid">
-        <span>Surface totale</span><strong>${summary.totalSurface} m2</strong>
-        <span>Prix moyen pondéré</span><strong>${formatExactMoney(avgPriceSqm)}/m2</strong>
-        <span>Rendement brut si loué</span><strong>${summary.grossYield}%</strong>
-      </div>`
-    : `
-      <div class="verdict">
-        <span class="verdict-label">Loyer mensuel retenu</span>
-        <strong class="verdict-value">${formatExactMoney(summary.totalMonthlyRent)}</strong>
-        <span class="verdict-range">Loyer annuel ${formatExactMoney(summary.annualRent)} · Tension locative ${tensionScore}/100</span>
-      </div>
-      <div class="model-grid">
-        <span>Loyer marché estimé</span><strong>${formatExactMoney(summary.totalMarketMonthlyRent)}</strong>
-        <span>Valeur vénale des lots</span><strong>${formatExactMoney(summary.totalSaleValue)}</strong>
-        <span>Rendement brut</span><strong>${summary.grossYield}%</strong>
-      </div>`;
+  const totalValue = isVente ? summary.totalSaleValue : summary.totalMonthlyRent;
+  const note = isVente
+    ? "Cet avis correspond à une moyenne des prix constatés grâce à une étude comparative sur les biens du secteur."
+    : "Cet avis correspond à une moyenne des loyers constatés grâce à une étude comparative sur les biens du secteur.";
 
   const html = `
     <html>
@@ -4699,89 +4688,72 @@ function buildAvisValeurHtml(kind) {
         <meta charset="utf-8">
         <title>${htmlEscape(title)} - ${htmlEscape(fullAddress || "Immeuble")}</title>
         <style>
-          @page{margin:14mm 12mm}
-          body{margin:0;padding:28px;background:#f5f8f3;color:#16211e;font-family:Arial,Helvetica,sans-serif}
-          .sheet{max-width:800px;margin:0 auto;background:#fff;border:1px solid #dce4dd;border-radius:12px;overflow:hidden}
-          .cover{padding:32px 40px 26px;background:#fff;border-bottom:4px solid #0c7a69}
-          .cover .brand{margin-bottom:20px}
-          .cover .brand img{height:64px;display:block}
-          .cover .eyebrow{font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#07594d;margin:0 0 6px}
-          .cover h1{font-size:25px;margin:0 0 8px;color:#16211e}
-          .cover .sub{font-size:13px;color:#5c6b64;margin:0}
-          .body{padding:26px 40px 30px}
-          .verdict{background:linear-gradient(135deg,#0c7a69,#0a6558);border-radius:12px;padding:20px 22px;margin-bottom:14px;color:#fff}
-          .verdict-label{display:block;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;opacity:.85;margin-bottom:6px}
-          .verdict-value{display:block;font-size:30px;font-weight:800;margin-bottom:6px}
-          .verdict-range{display:block;font-size:12.5px;opacity:.92}
-          h2{font-size:16px;margin:0 0 4px;color:#16211e}
-          .section-eyebrow{font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#07594d;margin:0 0 4px}
-          section{margin-bottom:22px}
-          .section-intro{color:#5c6b64;font-size:12.5px;margin:6px 0 0;line-height:1.5}
-          .table-card{border:1px solid #dce4dd;border-radius:10px;overflow:hidden;margin-top:8px}
-          .lots-table{width:100%;border-collapse:collapse;font-size:12px}
-          .lots-table th{text-align:left;padding:9px 10px;color:#07594d;font-weight:700;background:#eef4ee;font-size:10.5px;text-transform:uppercase;letter-spacing:.03em;border-bottom:1px solid #dce4dd}
-          .lots-table td{padding:9px 10px;border-bottom:1px solid #eef2ee}
-          .lots-table tbody tr:last-child td{border-bottom:0}
-          .lots-table tbody tr:nth-child(even){background:#fafcfa}
-          .model-grid{display:grid;grid-template-columns:1fr auto;gap:8px 14px;font-size:12.5px;padding:14px 4px 0}
-          .model-grid span{color:#5c6b64}
-          .model-grid strong{font-weight:800;color:#16211e;text-align:right}
-          .closing{background:#e6f2ee;border-radius:10px;padding:16px 18px;color:#07594d;font-size:12px;line-height:1.55}
-          .closing strong{display:block;font-size:13px;font-weight:800;margin-bottom:4px}
-          .signature-row{display:flex;align-items:flex-end;justify-content:space-between;margin-top:22px;padding-top:16px;border-top:1px solid #eef2ee}
-          .signature-row strong{display:block;font-size:13px;color:#16211e}
-          .signature-row span{display:block;font-size:11.5px;color:#5c6b64;margin-top:2px}
-          .signature-date{font-size:11.5px;color:#8b978f}
-          .footer{padding:14px 40px;border-top:1px solid #dce4dd;display:flex;justify-content:space-between;font-size:10.5px;color:#8b978f}
-          @media print{body{padding:0;background:#fff}.sheet{border:0;border-radius:0}}
+          @page{margin:16mm 14mm}
+          body{margin:0;padding:24px;background:#e9ede9;color:#16211e;font-family:Arial,Helvetica,sans-serif;font-size:13px}
+          .sheet{max-width:720px;margin:0 auto;background:#fff;padding:34px 38px}
+          .letterhead{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;margin-bottom:26px}
+          .letterhead-info p{margin:0 0 2px;font-size:11.5px;line-height:1.45}
+          .letterhead-info .gap{height:14px}
+          .letterhead-logo img{width:160px;display:block}
+          .property-line{margin-bottom:22px;font-size:12.5px;line-height:1.5}
+          .property-line .label{display:block;margin-bottom:2px}
+          .property-line strong{font-weight:700}
+          .doc-title{text-align:center;font-size:19px;letter-spacing:.03em;margin:0 0 2px;color:#16211e}
+          .doc-subtitle{text-align:center;font-size:11px;color:#6b7a71;text-transform:uppercase;letter-spacing:.06em;margin:0 0 22px}
+          .valuation-table{width:100%;border-collapse:collapse;border:1px solid #16211e;margin-bottom:14px}
+          .valuation-table th{border:1px solid #16211e;padding:9px 12px;font-size:11.5px;font-weight:700;text-align:left;background:#f4f6f4}
+          .valuation-table th:last-child{text-align:center;width:130px}
+          .valuation-table td{border:1px solid #16211e;padding:12px}
+          .descriptif-title{display:block;font-weight:700;margin-bottom:3px}
+          .descriptif-details{display:block;color:#4d5951;font-size:11.5px}
+          .value-cell{text-align:center;vertical-align:middle;font-size:13px}
+          .total-row td{font-weight:700;text-align:center}
+          .total-row td:first-child{text-align:right}
+          .valuation-note{font-size:11px;color:#4d5951;line-height:1.5;margin:0 0 34px}
+          .sign-row{display:flex;justify-content:space-between;font-size:12px;margin-bottom:26px}
+          .signature-label{font-size:12px}
+          @media print{body{padding:0;background:#fff}.sheet{padding:0}}
         </style>
       </head>
       <body>
         <div class="sheet">
-          <div class="cover">
-            <div class="brand"><img src="${LAMINIERE_LOGO_DATA_URL}" alt="LaMinière"></div>
-            <p class="eyebrow">${htmlEscape(title)}</p>
-            <h1>${htmlEscape(fullAddress || "Adresse à compléter")}</h1>
-            <p class="sub">${htmlEscape([postcode, city].filter(Boolean).join(" "))}${cadastre ? ` · Cadastre ${htmlEscape(cadastre)}` : ""}</p>
-            <p class="sub">Préparé ${clientName ? `pour ${htmlEscape(clientName)} ` : ""}le ${preparedDate}</p>
-          </div>
-          <div class="body">
-            ${verdictBlock}
-            ${description ? `
-            <section>
-              <p class="section-eyebrow">Le bien</p>
-              <h2>Description</h2>
-              <p class="section-intro">${htmlEscape(description).replaceAll(String.fromCharCode(10), "<br>")}</p>
-            </section>` : ""}
-            <section>
-              <p class="section-eyebrow">Composition de l'immeuble</p>
-              <h2>Détail par lot</h2>
-              <div class="table-card">
-                <table class="lots-table">
-                  <thead>${tableHead}</thead>
-                  <tbody>${rows}</tbody>
-                </table>
-              </div>
-            </section>
-            <div class="closing">
-              <strong>Méthode et réserves</strong>
-              ${isVente
-                ? "Avis de valeur établi par comparaison avec les prix de marché au m2 renseignés par lot (vente). Il ne remplace pas une expertise contradictoire et doit être confirmé par les DVF récentes, l'état du bien et une visite."
-                : "Avis de valeur locative établi par comparaison avec les loyers de marché au m2 renseignés par lot. Loyers réels retenus quand connus, sinon estimation marché. À confirmer par les baux en cours et les annonces locatives du secteur."}
-              Avis valable 3 mois à compter de la date d'émission.
+          <div class="letterhead">
+            <div class="letterhead-info">
+              ${LAMINIERE_LEGAL.siegeLines.map((line) => `<p>${htmlEscape(line)}</p>`).join("")}
+              <p>${htmlEscape(LAMINIERE_LEGAL.rcs)}</p>
+              <p>${htmlEscape(LAMINIERE_LEGAL.carteLigne1)}</p>
+              <p>${htmlEscape(LAMINIERE_LEGAL.carteLigne2)}</p>
+              <div class="gap"></div>
+              <p>Votre conseiller : ${htmlEscape(LAMINIERE_LEGAL.conseillerName)}</p>
+              <p>Numéro de téléphone : ${htmlEscape(LAMINIERE_LEGAL.conseillerPhone)}</p>
+              <p>Adresse mail : ${htmlEscape(LAMINIERE_LEGAL.conseillerEmail)}</p>
             </div>
-            <div class="signature-row">
-              <div>
-                <strong>Gabriel Valette</strong>
-                <span>LaMinière · laminiere.com</span>
-              </div>
-              <div class="signature-date">Fait le ${preparedDate}</div>
-            </div>
+            <div class="letterhead-logo"><img src="${LAMINIERE_LOGO_DATA_URL}" alt="LaMinière"></div>
           </div>
-          <div class="footer">
-            <span>LaMinière · laminiere.com</span>
-            <span>Document indicatif, non contractuel.</span>
+          <div class="property-line">
+            <span class="label">Adresse du bien :</span>
+            <strong>${htmlEscape(address || "À compléter")}<br>${htmlEscape([postcode, city].filter(Boolean).join(" "))}</strong>
           </div>
+          <h1 class="doc-title">${title}</h1>
+          <p class="doc-subtitle">${subtitle}</p>
+          <table class="valuation-table">
+            <thead>
+              <tr>
+                <th>Descriptif (descriptions des locaux, surface, équipements, etc.)</th>
+                <th>Avis de valeur</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows}
+              <tr class="total-row"><td>total :</td><td>${formatEuroSymbol(totalValue)}</td></tr>
+            </tbody>
+          </table>
+          <p class="valuation-note">${note}</p>
+          <div class="sign-row">
+            <span>Fait à ${htmlEscape(LAMINIERE_LEGAL.villeSignature)}</span>
+            <span>le ${preparedDate}</span>
+          </div>
+          <div class="signature-label">Signature :</div>
         </div>
         <script>window.onload = () => { window.print(); };</script>
       </body>
