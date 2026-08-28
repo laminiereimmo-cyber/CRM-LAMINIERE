@@ -477,6 +477,10 @@ h2 {
   border-left: 4px solid var(--blue);
 }
 
+.metric-card-accent-gold {
+  border-left: 4px solid var(--gold);
+}
+
 .metric-dot {
   display: inline-block;
   width: 8px;
@@ -1453,6 +1457,32 @@ tbody tr[data-contact-id]:hover {
   border: 1px solid var(--line);
   border-radius: 6px;
   font-size: 0.85rem;
+}
+
+.fg-partner-select {
+  width: 180px;
+}
+
+.fg-params-group,
+.fg-amounts-group {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.fg-params-group label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.fg-amounts-group .pill-hint {
+  margin: -2px 0 4px;
+  font-size: 0.72rem;
+  color: var(--muted);
 }
 
 .status {

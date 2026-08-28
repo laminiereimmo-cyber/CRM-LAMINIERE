@@ -525,7 +525,7 @@ const pageTitles = {
   gantt: "Planning dossiers",
   tasks: "Relances",
   gvh: "Socle Hunb'up",
-  "fg-gestion": "Gestion FG"
+  "fg-gestion": "Gestion locative"
 };
 
 function loadState() {
@@ -2228,9 +2228,12 @@ function ensureContactDefaults(contact) {
     cgpUsPerson: "Non vérifié",
     cgpCompliance: "À compléter",
     fgGestionStatus: "Pas de bien en gestion",
+    fgPartner: "FG",
     fgLoyerMensuel: 0,
     fgTauxHonoraires: 8,
     fgTauxRetrocession: 30,
+    labordeLoyerLoue: 0,
+    labordeLoyerALouer: 0,
     docChecks: {},
     timelineChecks: {},
     archivedAt: "",
@@ -3496,8 +3499,20 @@ function fgRetrocessionAnnuelle(contact) {
   return fgRetrocessionMensuelle(contact) * 12;
 }
 
+function labordeOneShotAcquis(contact) {
+  return Number(contact.labordeLoyerLoue || 0) * 0.5;
+}
+
+function labordeOneShotProjete(contact) {
+  return Number(contact.labordeLoyerALouer || 0);
+}
+
 function isInFgGestion(contact) {
   return contact.fgGestionStatus === "En gestion FG";
+}
+
+function gestionPartner(contact) {
+  return contact.fgPartner === "Laborde" ? "Laborde" : "FG";
 }
 
 function fgGestionContacts() {
@@ -3508,30 +3523,88 @@ function renderFgSummary() {
   const summary = document.querySelector("#fgSummary");
   if (!summary) return;
   const inGestion = fgGestionContacts();
-  const totalLoyers = inGestion.reduce((sum, contact) => sum + Number(contact.fgLoyerMensuel || 0), 0);
-  const totalMensuel = inGestion.reduce((sum, contact) => sum + fgRetrocessionMensuelle(contact), 0);
-  const totalAnnuel = inGestion.reduce((sum, contact) => sum + fgRetrocessionAnnuelle(contact), 0);
+  const fgContacts = inGestion.filter((contact) => gestionPartner(contact) === "FG");
+  const labordeContacts = inGestion.filter((contact) => gestionPartner(contact) === "Laborde");
+  const totalLoyers = fgContacts.reduce((sum, contact) => sum + Number(contact.fgLoyerMensuel || 0), 0);
+  const totalMensuel = fgContacts.reduce((sum, contact) => sum + fgRetrocessionMensuelle(contact), 0);
+  const totalAnnuel = fgContacts.reduce((sum, contact) => sum + fgRetrocessionAnnuelle(contact), 0);
+  const totalAcquis = labordeContacts.reduce((sum, contact) => sum + labordeOneShotAcquis(contact), 0);
+  const totalProjete = labordeContacts.reduce((sum, contact) => sum + labordeOneShotProjete(contact), 0);
   summary.innerHTML = `
     <article class="metric-card">
-      <span>Mandats en gestion FG</span>
-      <strong>${inGestion.length}</strong>
-      <p>clients suivis via le partenariat</p>
+      <span>Mandats FG</span>
+      <strong>${fgContacts.length}</strong>
+      <p>clients suivis via FG Centrale Immobilière</p>
     </article>
     <article class="metric-card">
-      <span>Loyers mensuels cumulés</span>
+      <span>Loyers FG cumulés</span>
       <strong>${formatExactMoney(totalLoyers)}</strong>
       <p>base de calcul des honoraires FG</p>
     </article>
     <article class="metric-card metric-card-accent-blue">
-      <span>Rétrocession / mois</span>
+      <span>Rétrocession FG / mois</span>
       <strong>${formatExactMoney(totalMensuel)}</strong>
       <p>versée par FG à LaMinière</p>
     </article>
     <article class="metric-card metric-card-accent-blue">
-      <span>Rétrocession / an (projection)</span>
+      <span>Rétrocession FG / an (projection)</span>
       <strong>${formatExactMoney(totalAnnuel)}</strong>
       <p>si les mandats restent stables</p>
     </article>
+    <article class="metric-card">
+      <span>Mandats Laborde</span>
+      <strong>${labordeContacts.length}</strong>
+      <p>clients suivis via Laborde Immobilier</p>
+    </article>
+    <article class="metric-card metric-card-accent-gold">
+      <span>One-shot Laborde acquis</span>
+      <strong>${formatExactMoney(totalAcquis)}</strong>
+      <p>50% du loyer, logements déjà loués</p>
+    </article>
+    <article class="metric-card metric-card-accent-gold">
+      <span>One-shot Laborde projeté</span>
+      <strong>${formatExactMoney(totalProjete)}</strong>
+      <p>part propriétaire à la mise en location</p>
+    </article>
+  `;
+}
+
+function fgRowParamsHtml(contact) {
+  if (gestionPartner(contact) === "Laborde") {
+    return `
+      <div class="fg-params-group">
+        <label>Loyer loué (50%)<input class="fg-input" data-fg-field="labordeLoyerLoue" type="number" min="0" step="1" value="${Number(contact.labordeLoyerLoue || 0)}" /></label>
+        <label>Loyer à louer (100%)<input class="fg-input" data-fg-field="labordeLoyerALouer" type="number" min="0" step="1" value="${Number(contact.labordeLoyerALouer || 0)}" /></label>
+      </div>
+    `;
+  }
+  return `
+    <div class="fg-params-group">
+      <label>Loyer/mois<input class="fg-input" data-fg-field="fgLoyerMensuel" type="number" min="0" step="1" value="${Number(contact.fgLoyerMensuel || 0)}" /></label>
+      <label>% hono FG<input class="fg-input" data-fg-field="fgTauxHonoraires" type="number" min="0" step="0.01" value="${Number(contact.fgTauxHonoraires || 0)}" /></label>
+      <label>% rétro<input class="fg-input" data-fg-field="fgTauxRetrocession" type="number" min="0" step="0.01" value="${Number(contact.fgTauxRetrocession || 0)}" /></label>
+    </div>
+  `;
+}
+
+function fgRowAmountsHtml(contact) {
+  if (gestionPartner(contact) === "Laborde") {
+    return `
+      <div class="fg-amounts-group">
+        <span class="money-pill" data-fg-acquis>${formatExactMoney(labordeOneShotAcquis(contact))}</span>
+        <span class="pill-hint">acquis (one-shot, déjà loué)</span>
+        <span class="money-pill" data-fg-projete>${formatExactMoney(labordeOneShotProjete(contact))}</span>
+        <span class="pill-hint">projeté (à la mise en location)</span>
+      </div>
+    `;
+  }
+  return `
+    <div class="fg-amounts-group">
+      <span class="money-pill" data-fg-monthly>${formatExactMoney(fgRetrocessionMensuelle(contact))}</span>
+      <span class="pill-hint">/ mois</span>
+      <span class="money-pill" data-fg-yearly>${formatExactMoney(fgRetrocessionAnnuelle(contact))}</span>
+      <span class="pill-hint">/ an</span>
+    </div>
   `;
 }
 
@@ -3546,16 +3619,19 @@ function renderFgRows() {
           <tr data-fg-contact-id="${contact.id}">
             <td><strong>${htmlEscape(contact.name)}</strong></td>
             <td>${htmlEscape(contact.sector || "Secteur à préciser")}</td>
-            <td><input class="fg-input" data-fg-field="fgLoyerMensuel" type="number" min="0" step="1" value="${Number(contact.fgLoyerMensuel || 0)}" /></td>
-            <td><input class="fg-input" data-fg-field="fgTauxHonoraires" type="number" min="0" step="0.01" value="${Number(contact.fgTauxHonoraires || 0)}" /></td>
-            <td><input class="fg-input" data-fg-field="fgTauxRetrocession" type="number" min="0" step="0.01" value="${Number(contact.fgTauxRetrocession || 0)}" /></td>
-            <td><span class="money-pill" data-fg-monthly>${formatExactMoney(fgRetrocessionMensuelle(contact))}</span></td>
-            <td><span class="money-pill" data-fg-yearly>${formatExactMoney(fgRetrocessionAnnuelle(contact))}</span></td>
+            <td>
+              <select class="fg-input fg-partner-select" data-fg-partner-select>
+                <option value="FG" ${gestionPartner(contact) === "FG" ? "selected" : ""}>FG Centrale Immobilière</option>
+                <option value="Laborde" ${gestionPartner(contact) === "Laborde" ? "selected" : ""}>Laborde Immobilier</option>
+              </select>
+            </td>
+            <td>${fgRowParamsHtml(contact)}</td>
+            <td>${fgRowAmountsHtml(contact)}</td>
             <td><button class="ghost-button table-action" data-fg-remove="${contact.id}" type="button">Retirer</button></td>
           </tr>
         `
       )
-      .join("") || `<tr><td colspan="8" class="empty">Aucun client en gestion FG pour l'instant. Ajoutez-en un ci-dessus.</td></tr>`;
+      .join("") || `<tr><td colspan="6" class="empty">Aucun client en gestion pour l'instant. Ajoutez-en un ci-dessus.</td></tr>`;
 }
 
 function renderFgAddOptions() {
@@ -3579,19 +3655,28 @@ function recalculateFgRow(row) {
   row.querySelectorAll("[data-fg-field]").forEach((input) => {
     contact[input.dataset.fgField] = Number(input.value || 0);
   });
-  row.querySelector("[data-fg-monthly]").textContent = formatExactMoney(fgRetrocessionMensuelle(contact));
-  row.querySelector("[data-fg-yearly]").textContent = formatExactMoney(fgRetrocessionAnnuelle(contact));
+  const amountsCell = row.querySelector(".fg-amounts-group")?.closest("td");
+  if (amountsCell) amountsCell.innerHTML = fgRowAmountsHtml(contact);
   renderFgSummary();
 }
 
-function addContactToFgGestion(contactId) {
+function setContactGestionPartner(contactId, partner) {
+  const contact = state.contacts.find((item) => item.id === contactId);
+  if (!contact) return;
+  contact.fgPartner = partner === "Laborde" ? "Laborde" : "FG";
+  saveState();
+  renderFgGestion();
+}
+
+function addContactToFgGestion(contactId, partner) {
   const contact = state.contacts.find((item) => item.id === contactId);
   if (!contact) return;
   ensureContactDefaults(contact);
   contact.fgGestionStatus = "En gestion FG";
+  contact.fgPartner = partner === "Laborde" ? "Laborde" : "FG";
   saveState();
   renderFgGestion();
-  showToast(`${contact.name} ajouté au suivi Gestion FG.`);
+  showToast(`${contact.name} ajouté au suivi gestion (${contact.fgPartner === "Laborde" ? "Laborde Immobilier" : "FG Centrale Immobilière"}).`);
 }
 
 function removeContactFromFgGestion(contactId) {
@@ -3605,7 +3690,8 @@ function removeContactFromFgGestion(contactId) {
 function bindFgGestion() {
   document.querySelector("#fgAddContact")?.addEventListener("click", () => {
     const select = document.querySelector("#fgAddContactSelect");
-    if (select && select.value) addContactToFgGestion(select.value);
+    const partnerSelect = document.querySelector("#fgAddPartnerSelect");
+    if (select && select.value) addContactToFgGestion(select.value, partnerSelect ? partnerSelect.value : "FG");
   });
   const body = document.querySelector("#fgGestionBody");
   if (!body) return;
@@ -3617,6 +3703,11 @@ function bindFgGestion() {
   });
   body.addEventListener("change", (event) => {
     if (event.target.closest("[data-fg-field]")) saveState();
+    const partnerSelect = event.target.closest("[data-fg-partner-select]");
+    if (partnerSelect) {
+      const row = partnerSelect.closest("[data-fg-contact-id]");
+      if (row) setContactGestionPartner(row.dataset.fgContactId, partnerSelect.value);
+    }
   });
   body.addEventListener("click", (event) => {
     const removeButton = event.target.closest("[data-fg-remove]");

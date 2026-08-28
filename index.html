@@ -71,7 +71,7 @@
           </button>
           <button class="nav-item" data-view="fg-gestion" type="button">
             <span data-icon="handshake"></span>
-            Gestion FG
+            Gestion locative
           </button>
         </nav>
 
@@ -674,13 +674,17 @@
           <div class="gvh-grid" id="gvhGrid"></div>
         </section>
 
-        <section class="view" id="fg-gestion" aria-label="Gestion locative FG">
+        <section class="view" id="fg-gestion" aria-label="Partenaires gestion locative">
           <div class="section-toolbar">
             <div>
-              <p class="eyebrow">Partenariat FG Centrale Immobilière</p>
-              <h2>Rétrocession gestion locative (30%)</h2>
+              <p class="eyebrow">Partenaires gestion locative</p>
+              <h2>FG Centrale Immobilière (30) &amp; Laborde Immobilier (34)</h2>
             </div>
             <div class="toolbar-actions">
+              <select class="fg-input fg-partner-select" id="fgAddPartnerSelect">
+                <option value="FG">FG Centrale Immobilière</option>
+                <option value="Laborde">Laborde Immobilier</option>
+              </select>
               <select id="fgAddContactSelect"></select>
               <button class="primary-button" id="fgAddContact" type="button">
                 <span data-icon="plus"></span>
@@ -695,11 +699,9 @@
                 <tr>
                   <th>Client</th>
                   <th>Secteur</th>
-                  <th>Loyer mensuel</th>
-                  <th>% honoraires FG</th>
-                  <th>% rétrocession</th>
-                  <th>Rétrocession / mois</th>
-                  <th>Rétrocession / an</th>
+                  <th>Partenaire</th>
+                  <th>Paramètres</th>
+                  <th>Montant(s)</th>
                   <th></th>
                 </tr>
               </thead>
