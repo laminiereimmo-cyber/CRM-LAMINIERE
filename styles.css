@@ -494,6 +494,10 @@ h2 {
   background: var(--blue);
 }
 
+.metric-dot-gold {
+  background: var(--gold);
+}
+
 .metric-card span {
   color: var(--muted);
   font-weight: 700;
@@ -1483,6 +1487,35 @@ tbody tr[data-contact-id]:hover {
   margin: -2px 0 4px;
   font-size: 0.72rem;
   color: var(--muted);
+}
+
+.fg-partner-block {
+  margin-bottom: 14px;
+}
+
+.fg-partner-heading {
+  display: flex;
+  align-items: center;
+  margin: 0 0 10px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.fg-group-row td {
+  padding: 10px 14px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--blue);
+  background: rgba(79, 111, 148, 0.08);
+  border-top: 1px solid var(--line);
+}
+
+.fg-group-row-laborde td {
+  color: var(--gold);
+  background: rgba(200, 139, 53, 0.1);
 }
 
 .status {

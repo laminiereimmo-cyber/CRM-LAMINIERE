@@ -3522,14 +3522,10 @@ function fgGestionContacts() {
 function renderFgSummary() {
   const summary = document.querySelector("#fgSummary");
   if (!summary) return;
-  const inGestion = fgGestionContacts();
-  const fgContacts = inGestion.filter((contact) => gestionPartner(contact) === "FG");
-  const labordeContacts = inGestion.filter((contact) => gestionPartner(contact) === "Laborde");
+  const fgContacts = fgGestionContacts().filter((contact) => gestionPartner(contact) === "FG");
   const totalLoyers = fgContacts.reduce((sum, contact) => sum + Number(contact.fgLoyerMensuel || 0), 0);
   const totalMensuel = fgContacts.reduce((sum, contact) => sum + fgRetrocessionMensuelle(contact), 0);
   const totalAnnuel = fgContacts.reduce((sum, contact) => sum + fgRetrocessionAnnuelle(contact), 0);
-  const totalAcquis = labordeContacts.reduce((sum, contact) => sum + labordeOneShotAcquis(contact), 0);
-  const totalProjete = labordeContacts.reduce((sum, contact) => sum + labordeOneShotProjete(contact), 0);
   summary.innerHTML = `
     <article class="metric-card">
       <span>Mandats FG</span>
@@ -3551,6 +3547,16 @@ function renderFgSummary() {
       <strong>${formatExactMoney(totalAnnuel)}</strong>
       <p>si les mandats restent stables</p>
     </article>
+  `;
+}
+
+function renderLabordeSummary() {
+  const summary = document.querySelector("#labordeSummary");
+  if (!summary) return;
+  const labordeContacts = fgGestionContacts().filter((contact) => gestionPartner(contact) === "Laborde");
+  const totalAcquis = labordeContacts.reduce((sum, contact) => sum + labordeOneShotAcquis(contact), 0);
+  const totalProjete = labordeContacts.reduce((sum, contact) => sum + labordeOneShotProjete(contact), 0);
+  summary.innerHTML = `
     <article class="metric-card">
       <span>Mandats Laborde</span>
       <strong>${labordeContacts.length}</strong>
@@ -3612,26 +3618,26 @@ function renderFgRows() {
   const body = document.querySelector("#fgGestionBody");
   if (!body) return;
   const inGestion = fgGestionContacts().filter(matchesSearch);
-  body.innerHTML =
-    inGestion
-      .map(
-        (contact) => `
-          <tr data-fg-contact-id="${contact.id}">
-            <td><strong>${htmlEscape(contact.name)}</strong></td>
-            <td>${htmlEscape(contact.sector || "Secteur à préciser")}</td>
-            <td>
-              <select class="fg-input fg-partner-select" data-fg-partner-select>
-                <option value="FG" ${gestionPartner(contact) === "FG" ? "selected" : ""}>FG Centrale Immobilière</option>
-                <option value="Laborde" ${gestionPartner(contact) === "Laborde" ? "selected" : ""}>Laborde Immobilier</option>
-              </select>
-            </td>
-            <td>${fgRowParamsHtml(contact)}</td>
-            <td>${fgRowAmountsHtml(contact)}</td>
-            <td><button class="ghost-button table-action" data-fg-remove="${contact.id}" type="button">Retirer</button></td>
-          </tr>
-        `
-      )
-      .join("") || `<tr><td colspan="6" class="empty">Aucun client en gestion pour l'instant. Ajoutez-en un ci-dessus.</td></tr>`;
+  const rowHtml = (contact) => `
+    <tr data-fg-contact-id="${contact.id}">
+      <td><strong>${htmlEscape(contact.name)}</strong></td>
+      <td>
+        <select class="fg-input fg-partner-select" data-fg-partner-select>
+          <option value="FG" ${gestionPartner(contact) === "FG" ? "selected" : ""}>FG Centrale Immobilière</option>
+          <option value="Laborde" ${gestionPartner(contact) === "Laborde" ? "selected" : ""}>Laborde Immobilier</option>
+        </select>
+      </td>
+      <td>${fgRowParamsHtml(contact)}</td>
+      <td>${fgRowAmountsHtml(contact)}</td>
+      <td><button class="ghost-button table-action" data-fg-remove="${contact.id}" type="button">Retirer</button></td>
+    </tr>
+  `;
+  const fgRows = inGestion.filter((contact) => gestionPartner(contact) === "FG");
+  const labordeRows = inGestion.filter((contact) => gestionPartner(contact) === "Laborde");
+  let html = "";
+  if (fgRows.length) html += `<tr class="fg-group-row"><td colspan="5">FG Centrale Immobilière</td></tr>` + fgRows.map(rowHtml).join("");
+  if (labordeRows.length) html += `<tr class="fg-group-row fg-group-row-laborde"><td colspan="5">Laborde Immobilier</td></tr>` + labordeRows.map(rowHtml).join("");
+  body.innerHTML = html || `<tr><td colspan="5" class="empty">Aucun client en gestion pour l'instant. Ajoutez-en un ci-dessus.</td></tr>`;
 }
 
 function renderFgAddOptions() {
@@ -3645,6 +3651,7 @@ function renderFgAddOptions() {
 
 function renderFgGestion() {
   renderFgSummary();
+  renderLabordeSummary();
   renderFgRows();
   renderFgAddOptions();
 }
@@ -3658,6 +3665,7 @@ function recalculateFgRow(row) {
   const amountsCell = row.querySelector(".fg-amounts-group")?.closest("td");
   if (amountsCell) amountsCell.innerHTML = fgRowAmountsHtml(contact);
   renderFgSummary();
+  renderLabordeSummary();
 }
 
 function setContactGestionPartner(contactId, partner) {
