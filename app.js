@@ -2462,9 +2462,10 @@ function normalizePaymentStatus(value, fallbackStatus = "") {
   if (normalized.includes("partiel")) return "Partiellement payé";
   if (normalized.includes("paye") || normalized.includes("realise") || normalized.includes("encaisse") || normalized.includes("regle")) return "Payé";
   if (value) return value;
-  const fallback = normalizeText(fallbackStatus);
-  if (fallback.includes("non paye") || fallback === "non") return "Non payé";
-  return fallback.includes("paye") || fallback.includes("realise") || fallback.includes("encaisse") || fallback.includes("regle") ? "Payé" : "Non payé";
+  // Pas de statut de paiement explicite sur le champ "Paiement" : on ne devine plus "Payé" a partir
+  // d'un libelle de statut de projet ("Solde a encaisser", "Realise / encaisse" cote coaching, etc.)
+  // qui n'est pas ce champ. Seul le champ "Paiement" coche par l'utilisateur compte comme encaisse.
+  return "Non payé";
 }
 
 function knownProjectsForContact(name) {
