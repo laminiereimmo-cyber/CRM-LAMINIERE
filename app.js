@@ -1134,6 +1134,7 @@ function calculateOldPropertyAcquisitionFees(price, dmtoMode) {
 let addressSuggestions = [];
 let addressSearchTimer;
 let analysisPhotoDataUrl = "";
+let analysisSignatureDataUrl = localStorage.getItem("laminiereSignatureDataUrl") || "";
 let analysisLots = [];
 
 async function fetchAddressSuggestions(query) {
@@ -4665,6 +4666,12 @@ function renderLotsSummary() {
   `;
 }
 
+function renderSignatureStatus() {
+  const target = document.querySelector("#signatureStatus");
+  if (!target) return;
+  target.textContent = analysisSignatureDataUrl ? "Signature enregistree, utilisee sur les avis de valeur." : "Aucune signature chargee : la ligne restera vide sur le PDF.";
+}
+
 function renderLotsTable() {
   const body = document.querySelector("#lotsTableBody");
   if (!body) return;
@@ -4915,6 +4922,15 @@ function buildAvisValeurPdf(kind) {
   doc.text(`le ${preparedDate}`, pageWidth - marginX, finalY, { align: "right" });
   finalY += 11;
   doc.text("Signature :", marginX, finalY);
+  if (analysisSignatureDataUrl) {
+    const signWidth = 42;
+    const signHeight = signWidth * (52 / 196);
+    try {
+      doc.addImage(analysisSignatureDataUrl, "JPEG", pageWidth - marginX - signWidth, finalY - 9, signWidth, signHeight);
+    } catch (error) {
+      /* signature optionnelle : on continue sans elle si l'insertion echoue */
+    }
+  }
 
   return { doc, safeTitle: safeFilename(fullAddress || "immeuble") };
 }
@@ -5705,6 +5721,20 @@ document.querySelector("#fetchDvfPrices")?.addEventListener("click", fetchDvfMar
 document.querySelector("#printAvisValeurVente")?.addEventListener("click", printAvisValeurVente);
 document.querySelector("#printAvisValeurLocatif")?.addEventListener("click", printAvisValeurLocatif);
 renderLotsTable();
+document.querySelector("#uploadSignature")?.addEventListener("click", () => document.querySelector("#signatureUpload").click());
+document.querySelector("#signatureUpload")?.addEventListener("change", (event) => {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  resizeImageFileToDataUrl(file, 400, 200, 0.92)
+    .then((dataUrl) => {
+      analysisSignatureDataUrl = dataUrl;
+      localStorage.setItem("laminiereSignatureDataUrl", dataUrl);
+      renderSignatureStatus();
+      showToast("Signature enregistree sur cet appareil.");
+    })
+    .catch(() => showToast("Image de signature illisible, essaie un PNG ou JPEG."));
+});
+renderSignatureStatus();
 document.querySelector("#applyWorksTotal")?.addEventListener("click", () => {
   const total = worksBreakdownTotal();
   document.querySelector("#analysisWorks").value = Math.round(total);

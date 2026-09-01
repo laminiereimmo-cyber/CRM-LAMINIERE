@@ -965,6 +965,13 @@ h2 {
   color: var(--accent-dark);
 }
 
+.signature-uploader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .checkbox-field {
   display: grid;
   grid-template-columns: auto 1fr;
