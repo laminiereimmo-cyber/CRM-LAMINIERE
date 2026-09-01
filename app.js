@@ -1583,9 +1583,9 @@ function renderMetrics() {
             <small>Objectif</small>
             <strong>${objectifDisplay}</strong>
           </div>
-          <div class="revenue-stat">
+          <div class="revenue-stat revenue-stat-realized">
             <small>Réalisé</small>
-            <strong class="revenue-stat-realized">${formatExactMoney(realizedValue)} HT</strong>
+            <strong>${formatExactMoney(realizedValue)} HT</strong>
           </div>
           <div class="revenue-stat">
             <small>Restant à réaliser</small>

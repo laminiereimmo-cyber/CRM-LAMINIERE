@@ -546,30 +546,39 @@ h2 {
 .revenue-breakdown {
   display: flex;
   flex-wrap: wrap;
-  gap: 14px;
-  margin: 10px 0 4px;
+  gap: 10px;
+  margin: 12px 0 4px;
 }
 
 .revenue-stat {
-  flex: 1 1 0;
-  min-width: 90px;
+  flex: 1 1 100px;
+  min-width: 92px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f7fbf8;
 }
 
 .revenue-stat small {
   margin-top: 0;
-  font-size: 0.72rem;
+  font-size: 0.66rem;
   text-transform: uppercase;
   letter-spacing: 0.03em;
 }
 
 .revenue-stat strong {
   display: block;
-  margin: 4px 0 0;
-  font-size: clamp(1.05rem, 1.8vw, 1.35rem);
-  line-height: 1.15;
+  margin: 5px 0 0;
+  font-size: clamp(0.95rem, 1.6vw, 1.18rem);
+  line-height: 1.18;
 }
 
 .revenue-stat-realized {
+  border-color: rgba(12, 122, 105, 0.35);
+  background: rgba(12, 122, 105, 0.07);
+}
+
+.revenue-stat-realized strong {
   color: var(--accent-dark);
 }
 
