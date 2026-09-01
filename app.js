@@ -954,6 +954,9 @@ function syncContactProjectDealsInData(data, contact) {
       missionType: project.missionType || "",
       stage: contact.status && getStages().includes(contact.status) ? contact.status : "Analyse de projet",
       due: project.paymentStatus || project.status || "Non payé",
+      worksDue: project.worksPaymentStatus || "Non payé",
+      mandateFeeHt: Number(project.mandateFeeHt || 0),
+      worksFeeHt: Number(project.worksFeeHt || 0),
       checks: ["Mandat", "Financement", "Acte"],
       archivedAt: ""
     };
@@ -1559,7 +1562,7 @@ function renderMetrics() {
   const projectDeals = deals.filter((deal) => deal.projectId && !deal.auditDeal && deal.countsAsOperation !== false);
   const revenueTarget = revenueTargetForYear(selectedRevenueYear);
   const revenueRows = revenueForecastRows();
-  const realizedValue = revenueRows.filter((row) => row.status === "Réalisé / encaissé").reduce((sum, row) => sum + row.value, 0);
+  const realizedValue = revenueRows.reduce((sum, row) => sum + row.realizedValue, 0);
   const remainingValue = revenueTarget !== null ? Math.max(revenueTarget - realizedValue, 0) : null;
   const targetProgress = revenueTarget ? Math.min(100, Math.round((realizedValue / revenueTarget) * 100)) : 0;
   const objectifDisplay = revenueTarget ? `${formatExactMoney(revenueTarget)} HT` : selectedRevenueYear === "2025" ? "Aucun (lancement)" : "À définir";
@@ -1632,7 +1635,23 @@ function revenueForecastRows() {
       const contact = findLinkedContactForDeal(deal);
       const canonicalName = canonicalRevenueClientName(`${deal.title || ""} ${deal.contact || ""} ${contact?.name || ""}`);
       const kind = deal.revenueCategory || (deal.auditDeal ? "Audit" : deal.countsAsOperation === false ? "Autre revenu" : "Projet");
-      const realized = deal.auditDeal || normalizePaymentStatus(deal.due) === "Payé";
+      const value = Number(deal.value || 0);
+      const hasWorksSplit = !deal.auditDeal && Number(deal.worksFeeHt || 0) > 0;
+      const worksHt = hasWorksSplit ? Number(deal.worksFeeHt || 0) : 0;
+      const mandateHt = hasWorksSplit ? value - worksHt : value;
+      const mandateRealized = deal.auditDeal || normalizePaymentStatus(deal.due) === "Payé";
+      const worksRealized = hasWorksSplit && normalizePaymentStatus(deal.worksDue) === "Payé";
+      const realizedValue = hasWorksSplit ? (mandateRealized ? mandateHt : 0) + (worksRealized ? worksHt : 0) : mandateRealized ? value : 0;
+      let status;
+      if (!hasWorksSplit) {
+        status = mandateRealized ? "Réalisé / encaissé" : "En cours";
+      } else if (mandateRealized && worksRealized) {
+        status = "Réalisé / encaissé";
+      } else if (!mandateRealized && !worksRealized) {
+        status = "En cours";
+      } else {
+        status = `Mandat ${normalizePaymentStatus(deal.due)} · Travaux ${normalizePaymentStatus(deal.worksDue)}`;
+      }
       return {
         id: deal.id,
         contactId: contact?.id || deal.contactId || "",
@@ -1640,8 +1659,9 @@ function revenueForecastRows() {
         client: contact?.name || canonicalName || deal.title || "Client",
         detail: deal.contact || deal.due || deal.stage || "",
         kind,
-        status: realized ? "Réalisé / encaissé" : "En cours",
-        value: Number(deal.value || 0),
+        status,
+        realizedValue,
+        value,
         stage: deal.stage || "À suivre"
       };
     });
@@ -1661,8 +1681,8 @@ function groupedRevenueForecastRows(rows) {
         };
       }
       groups[key].total += row.value;
-      if (row.status === "Réalisé / encaissé") groups[key].realized += row.value;
-      else groups[key].pending += row.value;
+      groups[key].realized += row.realizedValue;
+      groups[key].pending += row.value - row.realizedValue;
       groups[key].rows.push(row);
       return groups;
     }, {})
@@ -1675,7 +1695,7 @@ function openRevenueForecastModal() {
   const total = rows.reduce((sum, row) => sum + row.value, 0);
   const revenueTarget = revenueTargetForYear(selectedRevenueYear);
   const progress = revenueTarget ? Math.min(100, Math.round((total / revenueTarget) * 100)) : null;
-  const realized = rows.filter((row) => row.status === "Réalisé / encaissé").reduce((sum, row) => sum + row.value, 0);
+  const realized = rows.reduce((sum, row) => sum + row.realizedValue, 0);
   const pending = total - realized;
   document.querySelector("#revenueForecastTitle").textContent = `CA prévisionnel ${selectedRevenueYear}`;
   document.querySelector("#revenueForecastSummary").innerHTML = `
@@ -2511,6 +2531,7 @@ function createProject(data = {}) {
     revenueYear: String(data.revenueYear || yearFromDate(data.revenueDate) || selectedRevenueYear),
     revenueDate: data.revenueDate || "",
     paymentStatus: normalizePaymentStatus(data.paymentStatus, data.status),
+    worksPaymentStatus: normalizePaymentStatus(data.worksPaymentStatus),
     acquisitionPrice,
     mandateRate,
     mandateFeeTtc,
@@ -2842,13 +2863,14 @@ function coachingProjectTemplate(project) {
 
 function projectTemplate(project) {
   ensureProjectDefaults(project);
+  const hasWorks = Number(project.works || 0) > 0 || Number(project.worksFeeTtc || 0) > 0;
   const fields = [
     ["source", "Origine", "text"],
     ["revenueCategory", "Catégorie revenu", "select", revenueCategoryOptions()],
     ["missionType", "Type mission", "text"],
     ["city", "Projet / ville", "text"],
     ["revenueYear", "Année CA", "number"],
-    ["paymentStatus", "Paiement", "select", paymentStatusOptions()],
+    ["paymentStatus", "Paiement mandat", "select", paymentStatusOptions()],
     ["acquisitionPrice", "Prix acquisition", "number"],
     ["mandateRate", "% mandat", "number"],
     ["mandateFeeTtc", "Hono TTC", "number"],
@@ -2857,6 +2879,7 @@ function projectTemplate(project) {
     ["worksRate", "% travaux", "number"],
     ["worksFeeTtc", "Hono travaux TTC", "number"],
     ["worksFeeHt", "Hono travaux HT", "number"],
+    ...(hasWorks ? [["worksPaymentStatus", "Paiement travaux", "select", paymentStatusOptions()]] : []),
     ["auditFeeTtc", "Audit TTC", "number"],
     ["auditFeeHt", "Audit HT", "number"],
     ["furniture", "Meubles", "number"],
@@ -3184,6 +3207,9 @@ function syncContactProjectDeals(contact) {
       missionType: project.missionType || "",
       stage: contact.status && getStages().includes(contact.status) ? contact.status : "Analyse de projet",
       due: project.paymentStatus || project.status || "Non payé",
+      worksDue: project.worksPaymentStatus || "Non payé",
+      mandateFeeHt: Number(project.mandateFeeHt || 0),
+      worksFeeHt: Number(project.worksFeeHt || 0),
       checks: ["Mandat", "Financement", "Acte"],
       archivedAt: ""
     };
