@@ -2006,6 +2006,58 @@ tbody tr[data-contact-id]:hover {
   gap: 10px;
 }
 
+.works-tranches {
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f7fbf8;
+}
+
+.works-tranches-label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--muted);
+}
+
+.works-tranches-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.works-tranche {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.works-tranche input {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+}
+
+.works-tranche span {
+  flex: 1 1 auto;
+  color: var(--ink);
+}
+
+.works-tranche strong {
+  flex: none;
+  font-size: 0.78rem;
+}
+
 .doc-card-header {
   display: flex;
   align-items: center;
@@ -2535,7 +2587,8 @@ tbody tr[data-contact-id]:hover {
   .form-grid,
   .forecast-summary,
   .drawer-grid,
-  .project-grid {
+  .project-grid,
+  .works-tranches-grid {
     grid-template-columns: 1fr;
   }
 

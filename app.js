@@ -954,7 +954,7 @@ function syncContactProjectDealsInData(data, contact) {
       missionType: project.missionType || "",
       stage: contact.status && getStages().includes(contact.status) ? contact.status : "Analyse de projet",
       due: project.paymentStatus || project.status || "Non payé",
-      worksDue: project.worksPaymentStatus || "Non payé",
+      worksPaidFraction: worksPaidFraction(project),
       mandateFeeHt: Number(project.mandateFeeHt || 0),
       worksFeeHt: Number(project.worksFeeHt || 0),
       checks: ["Mandat", "Financement", "Acte"],
@@ -1640,17 +1640,19 @@ function revenueForecastRows() {
       const worksHt = hasWorksSplit ? Number(deal.worksFeeHt || 0) : 0;
       const mandateHt = hasWorksSplit ? value - worksHt : value;
       const mandateRealized = deal.auditDeal || normalizePaymentStatus(deal.due) === "Payé";
-      const worksRealized = hasWorksSplit && normalizePaymentStatus(deal.worksDue) === "Payé";
-      const realizedValue = hasWorksSplit ? (mandateRealized ? mandateHt : 0) + (worksRealized ? worksHt : 0) : mandateRealized ? value : 0;
+      const worksFraction = hasWorksSplit ? Number(deal.worksPaidFraction || 0) : 0;
+      const worksRealizedAmount = worksHt * worksFraction;
+      const realizedValue = hasWorksSplit ? (mandateRealized ? mandateHt : 0) + worksRealizedAmount : mandateRealized ? value : 0;
       let status;
       if (!hasWorksSplit) {
         status = mandateRealized ? "Réalisé / encaissé" : "En cours";
-      } else if (mandateRealized && worksRealized) {
+      } else if (mandateRealized && worksFraction >= 1) {
         status = "Réalisé / encaissé";
-      } else if (!mandateRealized && !worksRealized) {
+      } else if (!mandateRealized && worksFraction <= 0) {
         status = "En cours";
       } else {
-        status = `Mandat ${normalizePaymentStatus(deal.due)} · Travaux ${normalizePaymentStatus(deal.worksDue)}`;
+        const worksLabel = worksFraction >= 1 ? "payés" : worksFraction > 0 ? `${Math.round(worksFraction * 100)}% payés` : "non payés";
+        status = `Mandat ${mandateRealized ? "payé" : "en cours"} · Travaux ${worksLabel}`;
       }
       return {
         id: deal.id,
@@ -2489,6 +2491,18 @@ function normalizePaymentStatus(value, fallbackStatus = "") {
   return "Non payé";
 }
 
+function worksTrancheDefs() {
+  return [
+    { key: "Start", label: "Démarrage", pct: 0.4 },
+    { key: "Mid", label: "Mi-chantier", pct: 0.4 },
+    { key: "End", label: "Fin de chantier", pct: 0.2 }
+  ];
+}
+
+function worksPaidFraction(project) {
+  return worksTrancheDefs().reduce((sum, tranche) => sum + (project[`worksTranche${tranche.key}Paid`] ? tranche.pct : 0), 0);
+}
+
 function knownProjectsForContact(name) {
   const normalized = normalizeText(name);
   const templates = {
@@ -2521,6 +2535,7 @@ function createProject(data = {}) {
   const mandateFeeTtc = data.mandateFeeTtc !== undefined ? Number(data.mandateFeeTtc || 0) : Number(acquisitionPrice ? acquisitionPrice * (mandateRate / 100) : 0);
   const worksFeeTtc = data.worksFeeTtc !== undefined ? Number(data.worksFeeTtc || 0) : Number(works ? works * (worksRate / 100) : 0);
   const auditFeeTtc = data.auditFeeTtc !== undefined ? Number(data.auditFeeTtc || 0) : 0;
+  const legacyWorksFullyPaid = data.worksTrancheStartPaid === undefined && data.worksTrancheMidPaid === undefined && data.worksTrancheEndPaid === undefined && normalizePaymentStatus(data.worksPaymentStatus) === "Payé";
   return {
     id: data.id || crypto.randomUUID(),
     source: data.source || "CJ",
@@ -2532,6 +2547,9 @@ function createProject(data = {}) {
     revenueDate: data.revenueDate || "",
     paymentStatus: normalizePaymentStatus(data.paymentStatus, data.status),
     worksPaymentStatus: normalizePaymentStatus(data.worksPaymentStatus),
+    worksTrancheStartPaid: data.worksTrancheStartPaid !== undefined ? Boolean(data.worksTrancheStartPaid) : legacyWorksFullyPaid,
+    worksTrancheMidPaid: data.worksTrancheMidPaid !== undefined ? Boolean(data.worksTrancheMidPaid) : legacyWorksFullyPaid,
+    worksTrancheEndPaid: data.worksTrancheEndPaid !== undefined ? Boolean(data.worksTrancheEndPaid) : legacyWorksFullyPaid,
     acquisitionPrice,
     mandateRate,
     mandateFeeTtc,
@@ -2861,6 +2879,26 @@ function coachingProjectTemplate(project) {
   `;
 }
 
+function worksTranchesHtml(project) {
+  const worksTtc = Number(project.worksFeeTtc || 0);
+  return `
+    <div class="works-tranches">
+      <span class="works-tranches-label">Paiement travaux (échéancier chantier)</span>
+      <div class="works-tranches-grid">
+        ${worksTrancheDefs().map(
+          (tranche) => `
+            <label class="works-tranche">
+              <input type="checkbox" data-project-field="worksTranche${tranche.key}Paid" ${project[`worksTranche${tranche.key}Paid`] ? "checked" : ""} />
+              <span>${tranche.label} · ${Math.round(tranche.pct * 100)}%</span>
+              <strong>${formatExactMoney(worksTtc * tranche.pct)} TTC</strong>
+            </label>
+          `
+        ).join("")}
+      </div>
+    </div>
+  `;
+}
+
 function projectTemplate(project) {
   ensureProjectDefaults(project);
   const hasWorks = Number(project.works || 0) > 0 || Number(project.worksFeeTtc || 0) > 0;
@@ -2879,7 +2917,6 @@ function projectTemplate(project) {
     ["worksRate", "% travaux", "number"],
     ["worksFeeTtc", "Hono travaux TTC", "number"],
     ["worksFeeHt", "Hono travaux HT", "number"],
-    ...(hasWorks ? [["worksPaymentStatus", "Paiement travaux", "select", paymentStatusOptions()]] : []),
     ["auditFeeTtc", "Audit TTC", "number"],
     ["auditFeeHt", "Audit HT", "number"],
     ["furniture", "Meubles", "number"],
@@ -2907,6 +2944,7 @@ function projectTemplate(project) {
           )
           .join("")}
       </div>
+      ${hasWorks ? worksTranchesHtml(project) : ""}
       <button class="ghost-button table-action" data-remove-project="${project.id}" type="button">Sortir le projet</button>
     </article>
   `;
@@ -3087,7 +3125,7 @@ function readProjectInputs(contact) {
     const project = createProject(existing.get(id) || { id });
     row.querySelectorAll("[data-project-field]").forEach((input) => {
       const key = input.dataset.projectField;
-      project[key] = input.type === "number" ? Number(input.value || 0) : input.value;
+      project[key] = input.type === "checkbox" ? input.checked : input.type === "number" ? Number(input.value || 0) : input.value;
     });
     return createProject(project);
   });
@@ -3097,7 +3135,7 @@ function readProjectRow(row) {
   const project = { id: row.dataset.projectId };
   row.querySelectorAll("[data-project-field]").forEach((input) => {
     const key = input.dataset.projectField;
-    project[key] = input.type === "number" ? Number(input.value || 0) : input.value;
+    project[key] = input.type === "checkbox" ? input.checked : input.type === "number" ? Number(input.value || 0) : input.value;
   });
   return createProject(project);
 }
@@ -3207,7 +3245,7 @@ function syncContactProjectDeals(contact) {
       missionType: project.missionType || "",
       stage: contact.status && getStages().includes(contact.status) ? contact.status : "Analyse de projet",
       due: project.paymentStatus || project.status || "Non payé",
-      worksDue: project.worksPaymentStatus || "Non payé",
+      worksPaidFraction: worksPaidFraction(project),
       mandateFeeHt: Number(project.mandateFeeHt || 0),
       worksFeeHt: Number(project.worksFeeHt || 0),
       checks: ["Mandat", "Financement", "Acte"],
