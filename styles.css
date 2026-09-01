@@ -543,6 +543,36 @@ h2 {
   margin-top: 0;
 }
 
+.revenue-breakdown {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin: 10px 0 4px;
+}
+
+.revenue-stat {
+  flex: 1 1 0;
+  min-width: 90px;
+}
+
+.revenue-stat small {
+  margin-top: 0;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.revenue-stat strong {
+  display: block;
+  margin: 4px 0 0;
+  font-size: clamp(1.05rem, 1.8vw, 1.35rem);
+  line-height: 1.15;
+}
+
+.revenue-stat-realized {
+  color: var(--accent-dark);
+}
+
 .kpi-panel {
   min-height: 280px;
 }
