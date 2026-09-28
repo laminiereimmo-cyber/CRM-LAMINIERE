@@ -15,7 +15,7 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css?v=21.0" />
+    <link rel="stylesheet" href="styles.css?v=21.1" />
   </head>
   <body class="notranslate" translate="no">
     <div class="app-shell">
@@ -168,6 +168,20 @@
               <div id="wkMoney"></div>
             </section>
           </div>
+          <section class="wk-col wk-receipts">
+            <h2>Encaissé <span id="wkRcYear"></span> <small>(c'est ce chiffre qui fait le « Réalisé »)</small></h2>
+            <form class="wk-form" id="wkQuickReceipt" autocomplete="off">
+              <strong>+ Encaissement</strong>
+              <input class="fg-input" id="wkRcDate" type="date" />
+              <input class="fg-input" id="wkRcClient" type="text" list="wkRcClients" placeholder="Client" required />
+              <datalist id="wkRcClients"></datalist>
+              <select class="fg-input" id="wkRcType"></select>
+              <input class="fg-input" id="wkRcNote" type="text" placeholder="Projet (ex. Remoulins)" />
+              <input class="fg-input" id="wkRcHt" type="number" step="0.01" min="0" placeholder="Montant HT" required />
+              <button class="primary-button" type="submit">Ajouter</button>
+            </form>
+            <div id="wkReceipts"></div>
+          </section>
         </section>
 
         <section class="view" id="dashboard" aria-labelledby="pageTitle">
@@ -1019,7 +1033,7 @@
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.js"></script>
-    <script src="app.js?v=21.0"></script>
+    <script src="app.js?v=21.1"></script>
   </body>
 </html>
 
