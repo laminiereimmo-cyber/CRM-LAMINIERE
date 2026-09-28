@@ -1,3 +1,3 @@
 CRM LaMinière
-Version stable : v20.17 (module Partenaires travaux)
+Version stable : v21.0 (Notre semaine, menu simplifié)
 Bug preset corrigé le 08/06/2026

@@ -29,11 +29,15 @@
         </button>
 
         <nav class="nav-list" aria-label="Sections">
-          <button class="nav-item active" data-view="dashboard" type="button">
-            <span data-icon="layout-dashboard"></span>
-            Tableau de bord
+          <button class="nav-item active" data-view="semaine" type="button">
+            <span data-icon="calendar-check"></span>
+            Notre semaine
           </button>
-          <button class="nav-item" data-view="properties" type="button">
+          <button class="nav-item nav-secondary" data-view="dashboard" type="button">
+            <span data-icon="layout-dashboard"></span>
+            Tableau de bord complet
+          </button>
+          <button class="nav-item nav-secondary" data-view="properties" type="button">
             <span data-icon="building-2"></span>
             Parcours
           </button>
@@ -41,15 +45,15 @@
             <span data-icon="users-round"></span>
             Contacts
           </button>
-          <button class="nav-item" data-view="prospects" type="button">
+          <button class="nav-item nav-secondary" data-view="prospects" type="button">
             <span data-icon="user-plus"></span>
             Prospects
           </button>
-          <button class="nav-item" data-view="coaching" type="button">
+          <button class="nav-item nav-secondary" data-view="coaching" type="button">
             <span data-icon="target"></span>
             Coaching
           </button>
-          <button class="nav-item" data-view="analysis" type="button">
+          <button class="nav-item nav-secondary" data-view="analysis" type="button">
             <span data-icon="search-check"></span>
             Analyse
           </button>
@@ -57,7 +61,7 @@
             <span data-icon="kanban-square"></span>
             Opérations
           </button>
-          <button class="nav-item" data-view="gantt" type="button">
+          <button class="nav-item nav-secondary" data-view="gantt" type="button">
             <span data-icon="gantt-chart"></span>
             Planning
           </button>
@@ -76,6 +80,10 @@
           <button class="nav-item" data-view="partenaires" type="button">
             <span data-icon="hammer"></span>
             Partenaires travaux
+          </button>
+          <button class="nav-more-toggle" id="navMoreToggle" type="button" aria-expanded="false">
+            <span data-icon="more-horizontal"></span>
+            <span id="navMoreLabel">Plus d'outils</span>
           </button>
         </nav>
 
@@ -127,7 +135,42 @@
           </div>
         </header>
 
-        <section class="view active" id="dashboard" aria-labelledby="pageTitle">
+        <section class="view active" id="semaine" aria-label="Notre semaine">
+          <div class="wk-metrics" id="wkMetrics"></div>
+          <div class="wk-quick">
+            <form class="wk-form" id="wkQuickTask" autocomplete="off">
+              <strong>+ Relance</strong>
+              <input class="fg-input" id="wkTaskTitle" type="text" placeholder="Quoi ? ex. Rappeler la banque" required />
+              <input class="fg-input" id="wkTaskDue" type="date" />
+              <select class="fg-input" id="wkTaskClient"></select>
+              <button class="primary-button" type="submit">Ajouter</button>
+            </form>
+            <form class="wk-form" id="wkQuickClient" autocomplete="off">
+              <strong>+ Client</strong>
+              <input class="fg-input" id="wkClientName" type="text" placeholder="Nom" required />
+              <input class="fg-input" id="wkClientPhone" type="tel" placeholder="Téléphone" />
+              <select class="fg-input" id="wkClientStage"></select>
+              <input class="fg-input" id="wkClientNext" type="text" placeholder="Prochaine action" />
+              <button class="primary-button" type="submit">Créer</button>
+            </form>
+          </div>
+          <div class="wk-grid">
+            <section class="wk-col">
+              <h2>À faire</h2>
+              <div id="wkTasks"></div>
+            </section>
+            <section class="wk-col">
+              <h2>Prochaine étape par client</h2>
+              <div id="wkClients"></div>
+            </section>
+            <section class="wk-col">
+              <h2>À encaisser</h2>
+              <div id="wkMoney"></div>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" id="dashboard" aria-labelledby="pageTitle">
           <div class="metric-grid" id="metrics"></div>
 
           <section class="panel full-panel action-panel">
