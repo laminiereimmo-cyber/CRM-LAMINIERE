@@ -2761,3 +2761,13 @@ tbody tr[data-contact-id]:hover {
     grid-template-columns: 1fr;
   }
 }
+
+/* Partenaires travaux */
+.pt-checks { display: grid; gap: 4px; font-size: 0.82rem; }
+.pt-checks label { display: flex; align-items: center; gap: 6px; }
+.pt-rate { max-width: 80px; }
+.pt-rules { font-size: 0.82rem; color: var(--muted, #6b6b6b); margin-top: 12px; line-height: 1.5; }
+#ptCommBody td > select + input { margin-top: 6px; }
+#ptPartnersBody .fg-input { width: 100%; min-width: 110px; }
+#ptPartnersBody td:nth-child(6) .fg-input { min-width: 240px; }
+#ptPartnersBody .pt-rate { min-width: 70px; max-width: 90px; }

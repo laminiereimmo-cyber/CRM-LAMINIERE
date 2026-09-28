@@ -73,6 +73,10 @@
             <span data-icon="handshake"></span>
             Gestion locative
           </button>
+          <button class="nav-item" data-view="partenaires" type="button">
+            <span data-icon="hammer"></span>
+            Partenaires travaux
+          </button>
         </nav>
 
         <div class="sidebar-panel">
@@ -723,6 +727,64 @@
             </table>
           </div>
         </section>
+        <section class="view" id="partenaires" aria-label="Partenaires travaux">
+          <div class="section-toolbar">
+            <div>
+              <p class="eyebrow">Fournitures chantier · le client paie le partenaire en direct</p>
+              <h2>Partenaires &amp; rétrocessions</h2>
+            </div>
+            <div class="toolbar-actions">
+              <button class="ghost-button" id="ptAddPartner" type="button">
+                <span data-icon="plus"></span>
+                Ajouter un partenaire
+              </button>
+              <button class="primary-button" id="ptAddCommission" type="button">
+                <span data-icon="plus"></span>
+                Ajouter une commission
+              </button>
+            </div>
+          </div>
+          <div class="metric-grid" id="ptSummary"></div>
+          <div class="fg-partner-block">
+            <p class="fg-partner-heading"><span class="metric-dot metric-dot-gold"></span>Commissions par projet</p>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Client</th>
+                  <th>Partenaire</th>
+                  <th>Calcul</th>
+                  <th>Commission</th>
+                  <th>Suivi</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="ptCommBody"></tbody>
+            </table>
+          </div>
+          <div class="fg-partner-block">
+            <p class="fg-partner-heading"><span class="metric-dot metric-dot-blue"></span>Partenaires</p>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Famille</th>
+                  <th>Partenaire</th>
+                  <th>Zone</th>
+                  <th>Rétro %</th>
+                  <th>Statut</th>
+                  <th>Contact / prochaine action</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="ptPartnersBody"></tbody>
+            </table>
+          </div>
+          <p class="pt-rules">Règles : chaque rétrocession est annoncée au client dans le contrat d'accompagnement · une convention écrite par partenaire · électricité, plomberie et placo fournis par les artisans · aucun achat-revente de matériaux par LaMinière.</p>
+        </section>
+
       </main>
     </div>
 
