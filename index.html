@@ -15,7 +15,7 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css?v=21.2" />
+    <link rel="stylesheet" href="styles.css?v=22.0" />
   </head>
   <body class="notranslate" translate="no">
     <div class="app-shell">
@@ -45,14 +45,6 @@
             <span data-icon="users-round"></span>
             Contacts
           </button>
-          <button class="nav-item nav-secondary" data-view="prospects" type="button">
-            <span data-icon="user-plus"></span>
-            Prospects
-          </button>
-          <button class="nav-item nav-secondary" data-view="coaching" type="button">
-            <span data-icon="target"></span>
-            Coaching
-          </button>
           <button class="nav-item" data-view="analysis" type="button">
             <span data-icon="search-check"></span>
             Analyse
@@ -68,10 +60,6 @@
           <button class="nav-item" data-view="tasks" type="button">
             <span data-icon="calendar-check"></span>
             Relances
-          </button>
-          <button class="nav-item" data-view="gvh" type="button">
-            <span data-icon="landmark"></span>
-            Hunb'up
           </button>
           <button class="nav-item" data-view="fg-gestion" type="button">
             <span data-icon="handshake"></span>
@@ -168,6 +156,10 @@
               <div id="wkMoney"></div>
             </section>
           </div>
+          <section class="wk-col wk-keep">
+            <h2>À recontacter <small>(garder le lien)</small></h2>
+            <div id="wkKeep"></div>
+          </section>
           <section class="wk-col wk-receipts">
             <h2>Encaissé <span id="wkRcYear"></span> <small>(c'est ce chiffre qui fait le « Réalisé »)</small></h2>
             <form class="wk-form" id="wkQuickReceipt" autocomplete="off">
@@ -357,6 +349,10 @@
               <h2>Base clients et dossiers</h2>
             </div>
             <div class="toolbar-actions">
+              <button class="ghost-button" id="exportNewsletter" type="button" title="Contacts avec e-mail et accord newsletter, au format systeme.io">
+                <span data-icon="mail"></span>
+                Export newsletter
+              </button>
               <label class="compact-check">
                 <input id="showArchivedContacts" type="checkbox" />
                 <span>Archivés</span>
@@ -367,6 +363,7 @@
               </button>
             </div>
           </div>
+          <div class="contact-filters" id="contactFilters"></div>
           <div class="table-wrap">
             <table>
               <thead>
@@ -376,7 +373,7 @@
                   <th>Projet</th>
                   <th>Audit</th>
                   <th>Mandat ancien</th>
-                  <th>Hunb'up</th>
+                  <th>Dernier échange</th>
                   <th>Prochaine action</th>
                   <th>Actions</th>
                 </tr>
@@ -969,11 +966,12 @@
 
         <div class="drawer-tabs" role="tablist" aria-label="Sections client">
           <button class="drawer-tab active" data-drawer-tab="summary" type="button">Synthèse</button>
+          <button class="drawer-tab" data-drawer-tab="echanges" type="button">Échanges</button>
           <button class="drawer-tab" data-drawer-tab="timeline" type="button">Timeline</button>
           <button class="drawer-tab" data-drawer-tab="audit" type="button">Audit 3k</button>
           <button class="drawer-tab" data-drawer-tab="coaching" type="button">Coaching</button>
           <button class="drawer-tab" data-drawer-tab="mandate" type="button">Mandat</button>
-          <button class="drawer-tab" data-drawer-tab="gvh" type="button">Hunb'up</button>
+          <button class="drawer-tab" data-drawer-tab="gvh" type="button" hidden>Hunb'up</button>
           <button class="drawer-tab" data-drawer-tab="emails" type="button">Emails</button>
           <button class="drawer-tab" data-drawer-tab="notes" type="button">Notes</button>
         </div>
@@ -981,6 +979,10 @@
         <form class="client-form" id="clientForm" novalidate>
           <div class="drawer-section active" data-section="summary">
             <div class="drawer-grid" id="summaryFields"></div>
+            <div class="tag-picker" id="tagPicker"></div>
+          </div>
+          <div class="drawer-section" data-section="echanges">
+            <div class="interactions" id="interactionsPanel"></div>
           </div>
           <div class="drawer-section" data-section="timeline">
             <div class="timeline-board" id="clientTimeline"></div>
@@ -1016,7 +1018,7 @@
 
           <div class="drawer-actions">
             <button class="ghost-button" id="markMandate" type="button">Passer en mandat</button>
-            <button class="ghost-button" id="copyToGvh" type="button">Préparer Hunb'up</button>
+            <button class="ghost-button" id="copyToGvh" type="button" hidden>Préparer Hunb'up</button>
             <button class="ghost-button" id="exportClient" type="button">Export Word</button>
             <button class="ghost-button" id="exportClientExcel" type="button">Export Excel</button>
             <button class="ghost-button" id="archiveContact" type="button">Archiver</button>
@@ -1033,7 +1035,7 @@
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.js"></script>
-    <script src="app.js?v=21.2"></script>
+    <script src="app.js?v=22.0"></script>
   </body>
 </html>
 
