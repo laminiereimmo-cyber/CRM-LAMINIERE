@@ -6918,24 +6918,56 @@ function csvCell(value) {
   return /[",\n;]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
 }
 
+function splitContactName(contact) {
+  let first = String(contact.firstName || "").trim();
+  let last = String(contact.lastName || "").trim();
+  const full = String(contact.name || "").trim();
+  if (!first && (!last || last === full) && full) {
+    const parts = full.split(/\s+/);
+    if (parts.length > 1) {
+      first = parts[0];
+      last = parts.slice(1).join(" ");
+    } else {
+      last = full;
+    }
+  }
+  return { first, last: last || full };
+}
+
 function exportNewsletterCsv() {
   const rows = state.contacts.map(ensureContactDefaults).filter((c) => !isContactArchived(c) && c.email && c.newsletter === "Oui");
   if (!rows.length) {
     showToast("Aucun contact avec e-mail et « Newsletter : Oui ». Demande l'accord puis coche-le dans la fiche.", 5000);
     return;
   }
-  const lines = [["email", "first_name", "last_name", "tags"].join(",")].concat(
-    rows.map((c) => [c.email, c.firstName || "", c.lastName || c.name || "", ["LaMinière", contactSegmentLabel(c), ...(c.tags || [])].join(" | ")].map(csvCell).join(","))
-  );
-  const blob = new Blob(["﻿" + lines.join("\n")], { type: "text/csv;charset=utf-8" });
-  const link = document.createElement("a");
-  link.href = URL.createObjectURL(blob);
-  link.download = `laminiere-newsletter-${isoDateFromDate(startOfToday())}.csv`;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  setTimeout(() => URL.revokeObjectURL(link.href), 1000);
-  showToast(`${rows.length} contact(s) exporté(s) pour systeme.io.`);
+  const seen = new Set();
+  const table = rows
+    .map((c) => {
+      const { first, last } = splitContactName(c);
+      return { Email: String(c.email).trim().toLowerCase(), "Prénom": first, Nom: last, Type: contactSegmentLabel(c), Groupes: (c.tags || []).join(", ") };
+    })
+    .filter((row) => row.Email.includes("@") && !seen.has(row.Email) && seen.add(row.Email))
+    .sort((a, b) => a.Nom.localeCompare(b.Nom, "fr"));
+  const stamp = isoDateFromDate(startOfToday());
+  if (window.XLSX) {
+    const sheet = window.XLSX.utils.json_to_sheet(table, { header: ["Email", "Prénom", "Nom", "Type", "Groupes"] });
+    sheet["!cols"] = [{ wch: 34 }, { wch: 16 }, { wch: 26 }, { wch: 12 }, { wch: 30 }];
+    sheet["!autofilter"] = { ref: `A1:E${table.length + 1}` };
+    const book = window.XLSX.utils.book_new();
+    window.XLSX.utils.book_append_sheet(book, sheet, "Newsletter");
+    window.XLSX.writeFile(book, `laminiere-newsletter-${stamp}.xlsx`);
+  } else {
+    const lines = [["Email", "Prénom", "Nom", "Type", "Groupes"].join(";")].concat(table.map((row) => Object.values(row).map(csvCell).join(";")));
+    const blob = new Blob(["\ufeff" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `laminiere-newsletter-${stamp}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+  }
+  showToast(`${table.length} contact(s) exporté(s) : une colonne par information, prêt pour systeme.io.`);
 }
 
 function bindRelationship() {
