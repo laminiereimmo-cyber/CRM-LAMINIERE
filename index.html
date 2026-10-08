@@ -15,7 +15,7 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css?v=22.0" />
+    <link rel="stylesheet" href="styles.css?v=22.2" />
   </head>
   <body class="notranslate" translate="no">
     <div class="app-shell">
@@ -159,6 +159,10 @@
           <section class="wk-col wk-keep">
             <h2>À recontacter <small>(garder le lien)</small></h2>
             <div id="wkKeep"></div>
+          </section>
+          <section class="wk-col wk-keep">
+            <h2>Demander une recommandation <small>(clients contents)</small></h2>
+            <div id="wkReco"></div>
           </section>
           <section class="wk-col wk-receipts">
             <h2>Encaissé <span id="wkRcYear"></span> <small>(c'est ce chiffre qui fait le « Réalisé »)</small></h2>
@@ -931,6 +935,21 @@
       </form>
     </dialog>
 
+    <dialog class="modal" id="metricListModal">
+      <div class="modal-card metric-list-card">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">Tableau de bord</p>
+            <h2 id="metricListTitle">Liste</h2>
+          </div>
+          <button class="icon-button" data-close-list type="button" title="Fermer">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          </button>
+        </div>
+        <div id="metricListBody"></div>
+      </div>
+    </dialog>
+
     <dialog class="modal" id="revenueForecastModal">
       <form class="modal-card forecast-modal-card" method="dialog">
         <div class="modal-header">
@@ -983,6 +1002,7 @@
           </div>
           <div class="drawer-section" data-section="echanges">
             <div class="interactions" id="interactionsPanel"></div>
+            <div id="referralPanel"></div>
           </div>
           <div class="drawer-section" data-section="timeline">
             <div class="timeline-board" id="clientTimeline"></div>
@@ -1035,7 +1055,7 @@
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.js"></script>
-    <script src="app.js?v=22.0"></script>
+    <script src="app.js?v=22.2"></script>
   </body>
 </html>
 
