@@ -2869,3 +2869,8 @@ tbody tr[data-contact-id]:hover {
 .metric-list-table tbody tr { cursor: pointer; }
 .metric-list-table tbody tr:hover { background: rgba(12, 122, 105, 0.06); }
 .metric-list-table td { vertical-align: top; }
+/* ---- v22.4 Tableau de bord : CA en grand, 2 cartes à droite ---- */
+@media (min-width: 900px) {
+  #metrics { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr); }
+  #metrics .revenue-breakdown { gap: 12px; }
+}
