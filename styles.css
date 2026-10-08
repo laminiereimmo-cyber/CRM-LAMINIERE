@@ -2850,3 +2850,22 @@ tbody tr[data-contact-id]:hover {
   .interaction-item { grid-template-columns: 1fr auto; }
   .interaction-item .interaction-type { justify-self: start; grid-column: 1 / -1; }
 }
+/* ---- v22.2 Recommandations ---- */
+.referral-box { margin-top: 18px; padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: rgba(200, 139, 53, 0.06); display: grid; gap: 10px; }
+.referral-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px; }
+.referral-head h3 { margin: 0; font-size: 1rem; }
+.referral-tone { display: inline-flex; gap: 4px; }
+.referral-text { width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: 10px; font: inherit; font-size: 0.9rem; background: var(--panel); color: var(--ink); resize: vertical; }
+.referral-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.referral-actions a { text-decoration: none; display: inline-flex; align-items: center; }
+.referral-add { display: grid; grid-template-columns: auto 1fr 1fr 1fr auto; gap: 8px; align-items: center; }
+.referral-add input { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font: inherit; background: var(--panel); color: var(--ink); min-width: 0; }
+@media (max-width: 680px) { .referral-add { grid-template-columns: 1fr; } }
+/* ---- v22.2 Listes du tableau de bord ---- */
+.metric-card-action { cursor: pointer; }
+.metric-card-action:hover { border-color: var(--accent); }
+#metricListModal { width: min(1040px, calc(100vw - 32px)); }
+.metric-list-card { max-height: 86vh; overflow: auto; }
+.metric-list-table tbody tr { cursor: pointer; }
+.metric-list-table tbody tr:hover { background: rgba(12, 122, 105, 0.06); }
+.metric-list-table td { vertical-align: top; }
