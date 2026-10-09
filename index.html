@@ -15,7 +15,7 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css?v=22.4" />
+    <link rel="stylesheet" href="styles.css?v=22.5" />
   </head>
   <body class="notranslate" translate="no">
     <div class="app-shell">
@@ -625,6 +625,23 @@
                 <input id="analysisPropertyTax" type="number" value="1800" />
               </label>
               <label class="field">
+                <span>Durée de détention (ans)</span>
+                <input id="analysisHorizon" type="number" value="10" min="1" max="40" />
+                <small>Horizon de revente pour le TRI / ROI.</small>
+              </label>
+              <label class="field">
+                <span>Revalorisation du bien %/an</span>
+                <input id="analysisAppreciation" type="number" value="1" step="0.1" />
+              </label>
+              <label class="field">
+                <span>Indexation loyers & charges %/an</span>
+                <input id="analysisRentIndexation" type="number" value="1" step="0.1" />
+              </label>
+              <label class="field">
+                <span>Frais de revente %</span>
+                <input id="analysisResaleFees" type="number" value="5" step="0.5" />
+              </label>
+              <label class="field">
                 <span>Type d'actif</span>
                 <select id="analysisAsset">
                   <option>Petit immeuble de rapport</option>
@@ -1055,7 +1072,7 @@
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.js"></script>
-    <script src="app.js?v=22.4"></script>
+    <script src="app.js?v=22.5"></script>
   </body>
 </html>
 

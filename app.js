@@ -1121,6 +1121,97 @@ function monthlyPayment(capital, annualRate, years) {
   return (capital * rate) / (1 - Math.pow(1 + rate, -months));
 }
 
+function remainingLoanBalance(capital, annualRate, years, elapsedYears) {
+  const months = Math.max(1, years * 12);
+  const paid = Math.min(months, Math.max(0, elapsedYears * 12));
+  if (!capital || paid >= months) return 0;
+  const rate = Math.max(0, annualRate) / 100 / 12;
+  if (!rate) return capital * (1 - paid / months);
+  const payment = monthlyPayment(capital, annualRate, years);
+  return capital * Math.pow(1 + rate, paid) - payment * ((Math.pow(1 + rate, paid) - 1) / rate);
+}
+
+function internalRateOfReturn(flows) {
+  const hasNegative = flows.some((flow) => flow < 0);
+  const hasPositive = flows.some((flow) => flow > 0);
+  if (!hasNegative || !hasPositive) return null;
+  const npv = (rate) => flows.reduce((sum, flow, index) => sum + flow / Math.pow(1 + rate, index), 0);
+  let low = -0.99;
+  let high = 10;
+  let npvLow = npv(low);
+  if (npvLow * npv(high) > 0) return null;
+  for (let i = 0; i < 200; i += 1) {
+    const mid = (low + high) / 2;
+    const npvMid = npv(mid);
+    if (Math.abs(npvMid) < 0.01) return mid;
+    if (npvLow * npvMid < 0) high = mid;
+    else {
+      low = mid;
+      npvLow = npvMid;
+    }
+  }
+  return (low + high) / 2;
+}
+
+// TRI / LTV / ROI — calculs avant fiscalité, sur la base des hypothèses de détention et de revente.
+function computeInvestmentMetrics(input) {
+  const {
+    price = 0, works = 0, totalCost = 0, contribution = 0, borrowedCapital = 0,
+    annualRate = 0, duration = 0, rent = 0, monthlyOperatingCosts = 0, creditWithInsurance = 0,
+    horizon = 10, appreciation = 1, rentIndexation = 1, resaleFeeRate = 5
+  } = input;
+  const years = Math.max(1, Math.round(horizon || 10));
+  const ltvCost = totalCost ? borrowedCapital / totalCost : 0;
+  const ltvValue = price + works ? borrowedCapital / (price + works) : 0;
+  const yearlyCashflows = [];
+  for (let year = 1; year <= years; year += 1) {
+    const growth = Math.pow(1 + rentIndexation / 100, year - 1);
+    const loanYear = year <= duration ? creditWithInsurance * 12 : 0;
+    yearlyCashflows.push(rent * 12 * growth - monthlyOperatingCosts * 12 * growth - loanYear);
+  }
+  const propertyValue = (price + works) * Math.pow(1 + appreciation / 100, years);
+  const remainingDebt = remainingLoanBalance(borrowedCapital, annualRate, duration, years);
+  const netResale = propertyValue * (1 - resaleFeeRate / 100) - remainingDebt;
+  const cumulativeCashflow = yearlyCashflows.reduce((sum, value) => sum + value, 0);
+  const netGain = cumulativeCashflow + netResale - contribution;
+  const flows = [-contribution, ...yearlyCashflows];
+  flows[flows.length - 1] += netResale;
+  const irr = contribution > 0 ? internalRateOfReturn(flows) : null;
+  return {
+    years,
+    ltvCost,
+    ltvValue,
+    roiYear1: contribution > 0 ? yearlyCashflows[0] / contribution : null,
+    roiTotal: contribution > 0 ? netGain / contribution : null,
+    irr,
+    propertyValue,
+    remainingDebt,
+    netResale,
+    cumulativeCashflow,
+    netGain
+  };
+}
+
+function readInvestmentAssumptions() {
+  const value = (id, fallback) => {
+    const input = document.querySelector(`#${id}`);
+    if (!input || input.value === "") return fallback;
+    const parsed = Number(input.value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+  };
+  return {
+    horizon: value("analysisHorizon", 10),
+    appreciation: value("analysisAppreciation", 1),
+    rentIndexation: value("analysisRentIndexation", 1),
+    resaleFeeRate: value("analysisResaleFees", 5)
+  };
+}
+
+function formatRatio(value, digits = 1) {
+  if (value === null || value === undefined || !Number.isFinite(value)) return "Non calculable";
+  return `${(value * 100).toFixed(digits)}%`;
+}
+
 function setAutoInputValue(id, value) {
   const input = document.querySelector(`#${id}`);
   if (!input) return value;
@@ -1310,6 +1401,11 @@ function renderAnalysis() {
   const rentPerSqm = area ? Math.round((rent / area) * 10) / 10 : 0;
   const grossYield = totalCost ? Math.round((annualRent / totalCost) * 1000) / 10 : 0;
   const yieldOnBorrowed = borrowedCapital ? Math.round((annualRent / borrowedCapital) * 1000) / 10 : 0;
+  const assumptions = readInvestmentAssumptions();
+  const metrics = computeInvestmentMetrics({
+    price, works, totalCost, contribution, borrowedCapital, annualRate, duration, rent,
+    monthlyOperatingCosts: operatingCosts, creditWithInsurance, ...assumptions
+  });
   const tensionScore = estimateRentalTension(address, asset, rentPerSqm);
   const marketScore = Math.min(100, Math.max(0, Math.round(grossYield * 8 + tensionScore * 0.45 - Math.max(0, pricePerSqm - 2200) / 120)));
   const confidence = Math.min(100, Math.max(25, (lat && lon ? 45 : 0) + (address.length > 8 ? 20 : 0) + (price && area ? 20 : 0) + (rent ? 15 : 0)));
@@ -1388,6 +1484,22 @@ function renderAnalysis() {
         <a href="https://www.service-public.gouv.fr/particuliers/vosdroits/R16181" target="_blank" rel="noreferrer">Service-Public</a>
         <a href="https://docs.google.com/spreadsheets/d/1M7rikj2JVRQtkgLTey0wiXadE1e7RJZ9Z5FoDw3f2Ww/edit?usp=sharing" target="_blank" rel="noreferrer">Modèle complet</a>
       </div>
+    </article>
+    <article class="analysis-card wide">
+      <p class="eyebrow">Performance investissement</p>
+      <h3>TRI · ROI · LTV sur ${metrics.years} ans</h3>
+      <div class="model-grid">
+        <span title="Rendement annuel moyen de l'apport, revente comprise">TRI (avant fiscalité)</span><strong>${contribution > 0 ? formatRatio(metrics.irr) : "Non calculable – financement total"}</strong>
+        <span title="Gain total (cashflows + revente nette − apport) ÷ apport">ROI global à la revente</span><strong>${formatRatio(metrics.roiTotal, 0)}</strong>
+        <span title="Cashflow de la 1re année ÷ apport">ROI annuel (cash-on-cash an 1)</span><strong>${formatRatio(metrics.roiYear1)}</strong>
+        <span title="Capital emprunté ÷ coût total projet">LTV sur coût total</span><strong>${formatRatio(metrics.ltvCost, 0)}</strong>
+        <span title="Capital emprunté ÷ (prix + travaux)">LTV sur valeur du bien</span><strong>${formatRatio(metrics.ltvValue, 0)}</strong>
+        <span>Valeur de revente estimée</span><strong>${formatExactMoney(Math.round(metrics.propertyValue))}</strong>
+        <span>Capital restant dû à ${metrics.years} ans</span><strong>${formatExactMoney(Math.round(metrics.remainingDebt))}</strong>
+        <span>Cashflows cumulés</span><strong>${formatExactMoney(Math.round(metrics.cumulativeCashflow))}</strong>
+        <span>Enrichissement net</span><strong>${formatExactMoney(Math.round(metrics.netGain))}</strong>
+      </div>
+      <p class="client-mini">Hypothèses : revalorisation ${assumptions.appreciation}%/an, loyers et charges indexés ${assumptions.rentIndexation}%/an, frais de revente ${assumptions.resaleFeeRate}%. Calcul avant fiscalité.</p>
     </article>
     <article class="analysis-card">
       <p class="eyebrow">Prix</p>
@@ -4882,6 +4994,11 @@ function buildBankDossierHtml() {
   const monthlyOperatingCosts = monthlyCosts + propertyTax / 12;
   const cashflow = Math.round(rent - creditWithInsurance - monthlyOperatingCosts);
   const grossYield = totalCost ? Math.round(((rent * 12) / totalCost) * 1000) / 10 : 0;
+  const assumptions = readInvestmentAssumptions();
+  const metrics = computeInvestmentMetrics({
+    price, works, totalCost, contribution, borrowedCapital, annualRate: rate, duration, rent,
+    monthlyOperatingCosts, creditWithInsurance, ...assumptions
+  });
   const pricePerSqm = area ? Math.round(price / area) : 0;
   const rentPerSqm = area ? Math.round((rent / area) * 10) / 10 : 0;
   const tensionScore = estimateRentalTension(address, asset, rentPerSqm);
@@ -5040,7 +5157,12 @@ function buildBankDossierHtml() {
               <tr><th>Crédit avec assurance</th><td>${formatExactMoney(creditWithInsurance)}</td></tr>
               <tr><th>Charges totales</th><td>${formatExactMoney(monthlyOperatingCosts)}</td></tr>
               <tr><th>Cashflow avant fiscalité</th><td>${formatExactMoney(cashflow)} / mois</td></tr>
+              <tr><th>LTV (capital emprunté / coût total)</th><td>${formatRatio(metrics.ltvCost, 0)}</td></tr>
+              <tr><th>LTV (capital emprunté / prix + travaux)</th><td>${formatRatio(metrics.ltvValue, 0)}</td></tr>
+              <tr><th>TRI sur ${metrics.years} ans (avant fiscalité)</th><td>${contribution > 0 ? formatRatio(metrics.irr) : "Non calculable – financement total"}</td></tr>
+              <tr><th>ROI global à la revente</th><td>${formatRatio(metrics.roiTotal, 0)}</td></tr>
             </table>
+            <p class="section-note">Hypothèses TRI/ROI : revalorisation ${assumptions.appreciation}%/an, loyers et charges indexés ${assumptions.rentIndexation}%/an, frais de revente ${assumptions.resaleFeeRate}%.</p>
             <h2>6. Pièces à joindre</h2>
             <ul>
               <li>Annonce, photos et plan si disponible</li>
@@ -5109,6 +5231,11 @@ function printClientFiche() {
   const monthlyOperatingCosts = monthlyCosts + propertyTax / 12;
   const cashflow = Math.round(rent - creditWithInsurance - monthlyOperatingCosts);
   const grossYield = totalCost ? Math.round(((rent * 12) / totalCost) * 1000) / 10 : 0;
+  const assumptions = readInvestmentAssumptions();
+  const metrics = computeInvestmentMetrics({
+    price, works, totalCost, contribution, borrowedCapital, annualRate: rate, duration, rent,
+    monthlyOperatingCosts, creditWithInsurance, ...assumptions
+  });
   const pricePerSqm = area ? Math.round(price / area) : 0;
   const rentPerSqm = area ? Math.round((rent / area) * 10) / 10 : 0;
   const tensionScore = estimateRentalTension(address, asset, rentPerSqm);
@@ -5206,6 +5333,9 @@ function printClientFiche() {
                 <tr><th>Apport personnel</th><td>${formatExactMoney(contribution)}</td></tr>
                 <tr><th>Loyer mensuel estimé</th><td>${formatExactMoney(rent)}</td></tr>
                 <tr><th>Cashflow avant fiscalité</th><td>${formatExactMoney(cashflow)}/mois</td></tr>
+                <tr><th>Part financée par la banque (LTV)</th><td>${formatRatio(metrics.ltvCost, 0)}</td></tr>
+                <tr><th>TRI sur ${metrics.years} ans (avant fiscalité)</th><td>${contribution > 0 ? formatRatio(metrics.irr) : "Non calculable"}</td></tr>
+                <tr><th>Enrichissement net estimé à ${metrics.years} ans</th><td>${formatExactMoney(Math.round(metrics.netGain))}</td></tr>
               </table>
             </section>
             <div class="closing">
@@ -6270,6 +6400,10 @@ document.querySelector("#runAnalysis").addEventListener("click", renderAnalysis)
   "analysisDuration",
   "analysisMonthlyCosts",
   "analysisPropertyTax",
+  "analysisHorizon",
+  "analysisAppreciation",
+  "analysisRentIndexation",
+  "analysisResaleFees",
   "analysisAsset",
   "worksStructure",
   "worksTechnical",
