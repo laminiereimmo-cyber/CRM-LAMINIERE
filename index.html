@@ -15,7 +15,7 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css?v=22.6" />
+    <link rel="stylesheet" href="styles.css?v=22.7" />
   </head>
   <body class="notranslate" translate="no">
     <div class="app-shell">
@@ -438,11 +438,14 @@
                         <option value="appartement">Appartement</option>
                         <option value="maison">Maison</option>
                         <option value="immeuble">Immeuble / plusieurs logements</option>
-                      </select></td></tr>
+                        <option value="mixte">Immeuble mixte (local + logements)</option>
+                      </select><small id="sTypeNote" class="lm-type-note"></small></td></tr>
                     <tr><td>Surface (m²)</td><td><input id="sArea" type="number" inputmode="decimal" min="0" /></td></tr>
                     <tr><td>Prix demandé FAI (€)<small id="sPriceHint"></small></td><td><input id="sPrice" type="number" inputmode="decimal" min="0" /></td></tr>
                     <tr><td>Travaux (€)</td><td><input id="sWorks" type="number" inputmode="decimal" min="0" /></td></tr>
                     <tr><td>Loyer prévu / mois (€)<small id="sRentHint"></small></td><td><input id="sRent" type="number" inputmode="decimal" min="0" /></td></tr>
+                    <tr class="lm-mixte-row hidden"><td>dont local commercial (m²)</td><td><input id="sLocalArea" type="number" inputmode="decimal" min="0" /></td></tr>
+                    <tr class="lm-mixte-row hidden"><td>dont loyer du local / mois (€)<small>bail commercial</small></td><td><input id="sLocalRent" type="number" inputmode="decimal" min="0" /></td></tr>
                     <tr><td>DPE actuel</td><td>
                       <select id="sDpe">
                         <option value="">Je ne sais pas</option>
@@ -1130,8 +1133,8 @@
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.js"></script>
-    <script src="app.js?v=22.6"></script>
-    <script src="analyse-simple.js?v=22.6"></script>
+    <script src="app.js?v=22.7"></script>
+    <script src="analyse-simple.js?v=22.7"></script>
   </body>
 </html>
 

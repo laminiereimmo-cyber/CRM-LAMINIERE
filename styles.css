@@ -3069,6 +3069,34 @@ tbody tr[data-contact-id]:hover {
   font-size: 12px;
   margin-top: 2px;
 }
+.lm-inputs .lm-type-note {
+  display: block;
+  padding: 0 10px 8px;
+  color: var(--muted);
+  font-size: 11.5px;
+  white-space: normal;
+}
+.lm-inputs .lm-type-note:empty {
+  display: none;
+}
+.lm-mixte-row td:first-child {
+  padding-left: 22px;
+  font-weight: 500;
+}
+.lm-check-main {
+  flex: 1;
+  min-width: 0;
+}
+.lm-check-aside {
+  flex: none;
+  padding-left: 14px;
+  border-left: 1px solid var(--line);
+  text-align: right;
+  white-space: nowrap;
+}
+.lm-check-aside strong {
+  color: var(--accent-dark);
+}
 .lm-dot {
   flex: none;
   width: 14px;

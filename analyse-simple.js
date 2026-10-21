@@ -1,4 +1,4 @@
-/* LaMinière CRM — Analyse simple + données marché (v22.6)
+/* LaMinière CRM — Analyse simple + données marché (v22.7)
    Sources publiques, sans clé :
    - Ventes DVF : API DVF open data du Cerema (apidf-preprod.cerema.fr)
    - Loyers de marché : carte des loyers ANIL / DHUP 2025 (tabular-api.data.gouv.fr)
@@ -21,7 +21,8 @@
   const TYPES = {
     appartement: { label: "Appartement", codes: ["121"], asset: "Appartement ancien" },
     maison: { label: "Maison", codes: ["111"], asset: "Opération avec travaux" },
-    immeuble: { label: "Immeuble / plusieurs logements", codes: ["122", "123", "112", "151", "152"], asset: "Petit immeuble de rapport" }
+    immeuble: { label: "Immeuble / plusieurs logements", codes: ["122", "123", "112", "151", "152"], asset: "Petit immeuble de rapport" },
+    mixte: { label: "Immeuble mixte (local + logements)", codes: ["152", "151"], asset: "Petit immeuble de rapport" }
   };
 
   const DPE_CLASSES = ["A", "B", "C", "D", "E", "F", "G"];
@@ -74,16 +75,36 @@
     const lat = pts.reduce((s, p) => s + p[1], 0) / pts.length;
     return { lat, lon };
   };
+  // Cache mémoire : une adresse déjà analysée ne repart pas sur le réseau.
+  const cache = new Map();
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   async function getJson(url, timeout = 20000) {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeout);
-    try {
-      const response = await fetch(url, { signal: controller.signal });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      return await response.json();
-    } finally {
-      clearTimeout(timer);
+    if (cache.has(url)) return cache.get(url);
+    // Les API publiques refusent (403/429) quand on les sollicite trop vite : on réessaie en patientant.
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeout);
+      try {
+        const response = await fetch(url, { signal: controller.signal });
+        if ((response.status === 403 || response.status === 429) && attempt < 2) {
+          await wait(2500 * (attempt + 1));
+          continue;
+        }
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+        cache.set(url, data);
+        return data;
+      } finally {
+        clearTimeout(timer);
+      }
     }
+    throw new Error("HTTP 403");
+  }
+  // Exécute les tâches deux par deux pour ménager les API.
+  async function inPairs(items, fn) {
+    const out = [];
+    for (let i = 0; i < items.length; i += 2) out.push(...(await Promise.all(items.slice(i, i + 2).map(fn))));
+    return out;
   }
   const toast = (msg, d) => (typeof window.showToast === "function" ? window.showToast(msg, d) : console.log(msg));
 
@@ -106,9 +127,7 @@
       const dLon = radius / (111320 * Math.cos((lat * Math.PI) / 180));
       const bbox = [lon - dLon, lat - dLat, lon + dLon, lat + dLat].map((v) => v.toFixed(5)).join(",");
       // Une requête par année : l'API ne trie pas par date et plafonne à 500 résultats.
-      const pages = await Promise.all(
-        years.map((y) => getJson(`${DVF_URL}?in_bbox=${bbox}&anneemut_min=${y}&anneemut_max=${y}&page_size=500${codeFilter}`, 30000).catch(() => null))
-      );
+      const pages = await inPairs(years, (y) => getJson(`${DVF_URL}?in_bbox=${bbox}&anneemut_min=${y}&anneemut_max=${y}&page_size=500${codeFilter}`, 30000).catch(() => null));
       if (pages.every((p) => p === null)) throw new Error("DVF indisponible");
       const sales = pages
         .filter(Boolean)
@@ -180,6 +199,8 @@
       works: n("sWorks"),
       rent: n("sRent"),
       dpe: $("#sDpe")?.value || "",
+      localArea: n("sLocalArea"),
+      localRent: n("sLocalRent"),
       contribution: $("#sContribution")?.value === "" ? null : n("sContribution")
     };
   }
@@ -216,7 +237,12 @@
     const contrib = $("#analysisContribution");
     if ($("#sContribution")) $("#sContribution").value = contrib?.dataset.manual === "true" ? contrib.value : "";
     const asset = v("analysisAsset");
-    if ($("#sType")) $("#sType").value = /immeuble/i.test(asset) ? "immeuble" : /appartement|colocation/i.test(asset) ? "appartement" : $("#sType").value;
+    const typeSel = $("#sType");
+    if (typeSel) {
+      const current = typeSel.value;
+      // « Immeuble mixte » n'existe pas dans le mode complet : on le conserve.
+      typeSel.value = /immeuble/i.test(asset) ? (current === "mixte" ? "mixte" : "immeuble") : /appartement|colocation/i.test(asset) ? "appartement" : current;
+    }
   }
 
   // ---------- calcul du verdict ----------
@@ -239,6 +265,7 @@
         label: "Prix vs marché",
         level: g <= 0.05 ? "green" : g <= 0.15 ? "orange" : "red",
         value: pct(g),
+        aside: { label: "Valeur DVF", value: euro(view.price.estimate), sub: `${num(med)} €/m² · ${base.length} ventes` },
         text: g <= -0.1 ? "Nettement sous les ventes du secteur : vérifier pourquoi (état, travaux, nuisances)." : g <= 0.05 ? "Dans les prix du secteur." : g <= 0.15 ? "Un peu au-dessus du marché : marge de négociation." : "Au-dessus du marché : à négocier fermement."
       });
     } else {
@@ -247,16 +274,21 @@
 
     // Loyer vs marché (ANIL)
     const rentRef = market.rent && (s.type === "maison" ? market.rent.maison : s.type === "appartement" && s.area && s.area < 45 ? market.rent.appartement12 || market.rent.appartement : s.type === "appartement" && s.area >= 60 ? market.rent.appartement3 || market.rent.appartement : market.rent.appartement);
-    if (rentRef && s.area) {
-      view.rent = { ...rentRef, market: rentRef.sqm * s.area, low: rentRef.low * s.area, high: rentRef.high * s.area };
-      view.rent.gap = s.rent ? s.rent / view.rent.market - 1 : null;
+    // Immeuble mixte : seuls les logements se comparent à l'ANIL (loyers d'habitation)
+    const mixte = s.type === "mixte";
+    const housingArea = mixte ? Math.max(0, s.area - s.localArea) : s.area;
+    const housingRent = mixte ? Math.max(0, s.rent - s.localRent) : s.rent;
+    if (rentRef && housingArea) {
+      view.rent = { ...rentRef, market: rentRef.sqm * housingArea, low: rentRef.low * housingArea, high: rentRef.high * housingArea, area: housingArea, planned: housingRent, mixte };
+      view.rent.gap = housingRent ? housingRent / view.rent.market - 1 : null;
       const g = view.rent.gap;
       view.checks.push({
         key: "loyer",
-        label: "Loyer vs marché",
+        label: mixte ? "Loyer logements vs marché" : "Loyer vs marché",
         level: g === null ? "grey" : g <= 0.1 ? "green" : g <= 0.25 ? "orange" : "red",
         value: g === null ? "–" : pct(g),
-        text: g === null ? "Renseigner le loyer prévu." : g <= 0.1 ? "Loyer réaliste pour la commune." : g <= 0.25 ? "Loyer ambitieux : se justifie en meublé ou colocation, à prouver par des annonces." : "Loyer très au-dessus du marché : risque de vacance, revoir à la baisse."
+        aside: { label: mixte ? "Marché logements" : "Loyer marché", value: euro(view.rent.market), sub: `${num(rentRef.sqm, 1)} €/m² · ANIL${mixte ? ` · ${num(housingArea)} m²` : ""}` },
+        text: g === null ? "Renseigner le loyer prévu." : g <= -0.15 ? "Sous le marché : potentiel de hausse à la relocation." : g <= 0.1 ? "Loyer réaliste pour la commune." : g <= 0.25 ? "Loyer ambitieux : se justifie en meublé ou colocation, à prouver par des annonces." : "Loyer très au-dessus du marché : risque de vacance, revoir à la baisse."
       });
     } else {
       view.checks.push({ key: "loyer", label: "Loyer vs marché", level: "grey", value: "–", text: market.rent === null && market.key ? "Pas d'indicateur de loyer pour cette commune." : "Cliquer sur Analyser pour charger le loyer de marché." });
@@ -360,7 +392,7 @@
       <div class="lm-checks">
         ${view.checks
           .map(
-            (c) => `<div class="lm-check">${dot(c.level)}<div><span>${esc(c.label)}</span><strong>${esc(c.value)}</strong><small>${esc(c.text)}</small></div></div>`
+            (c) => `<div class="lm-check">${dot(c.level)}<div class="lm-check-main"><span>${esc(c.label)}</span><strong>${esc(c.value)}</strong><small>${esc(c.text)}</small></div>${c.aside ? `<div class="lm-check-aside"><span>${esc(c.aside.label)}</span><strong>${esc(c.aside.value)}</strong><small>${esc(c.aside.sub)}</small></div>` : ""}</div>`
           )
           .join("")}
       </div>`;
@@ -415,11 +447,12 @@
         html += `
           <div class="lm-table-wrap"><table class="lm-sheet lm-kv"><tbody>
             <tr><td>Loyer de marché au m² <small>${r.precise ? "calculé sur la commune" : "commune peu dense : estimé sur le secteur"}</small></td><td class="r">${num(r.sqm, 1)} €/m²</td></tr>
-            <tr><td>Loyer de marché pour ${num(s.area)} m²</td><td class="r"><strong>${euro(r.market)}</strong> / mois</td></tr>
+            <tr><td>Loyer de marché pour ${num(r.area)} m²${r.mixte ? " de logements" : ""}</td><td class="r"><strong>${euro(r.market)}</strong> / mois</td></tr>
             <tr><td>Fourchette</td><td class="r">${euro(r.low)} – ${euro(r.high)}</td></tr>
-            <tr class="total"><td>Votre loyer prévu</td><td class="r ${r.gap > 0.25 ? "lm-neg" : ""}">${s.rent ? `${euro(s.rent)} (${pct(r.gap)})` : "à renseigner"}</td></tr>
+            <tr class="total"><td>${r.mixte ? "Loyer prévu des logements" : "Votre loyer prévu"}</td><td class="r ${r.gap > 0.25 ? "lm-neg" : ""}">${r.planned ? `${euro(r.planned)} (${pct(r.gap)})` : "à renseigner"}</td></tr>
+            ${r.mixte ? `<tr><td>Loyer du local commercial <small>${num(s.localArea)} m² · hors ANIL, à vérifier sur le bail</small></td><td class="r">${euro(s.localRent)}${s.localArea ? ` <small>${num(s.localRent / s.localArea, 1)} €/m²</small>` : ""}</td></tr>` : ""}
           </tbody></table></div>
-          <p class="lm-note">Loyers d'annonce, charges comprises, logement vide. Un meublé ou une colocation se loue plus cher.</p>`;
+          <p class="lm-note">Loyers d'annonce, charges comprises, logement vide. Un meublé ou une colocation se loue plus cher.${r.mixte ? " Le loyer du local commercial n'est pas comparé : l'ANIL ne couvre que l'habitation. Vérifier la durée restante du bail et la solidité du locataire." : ""}</p>`;
       } else {
         html += `<p class="lm-note">Pas d'indicateur disponible pour cette commune.</p>`;
       }
@@ -454,6 +487,17 @@
           update();
         });
       } else hint.textContent = "";
+    }
+    const mixteRows = document.querySelectorAll(".lm-mixte-row");
+    mixteRows.forEach((row) => row.classList.toggle("hidden", s.type !== "mixte"));
+    const typeNote = $("#sTypeNote");
+    if (typeNote) {
+      typeNote.textContent =
+        s.type === "immeuble"
+          ? "Rez-de-chaussée commercial ? Choisir « Immeuble mixte » pour séparer le local des logements."
+          : s.type === "mixte"
+          ? "Surface et loyer totaux en haut, part du local ci-dessous."
+          : "";
     }
     const priceHint = $("#sPriceHint");
     if (priceHint) priceHint.textContent = view.price ? `Marché : ${euro(view.price.estimate)}` : "";
@@ -500,7 +544,7 @@
       market.dpe = dpe.status === "fulfilled" ? dpe.value : null;
       market.commune = commune.status === "fulfilled" ? commune.value : null;
       const failed = [dvf.status === "rejected" && "ventes DVF", rent.status === "rejected" && "loyers", dpe.status === "rejected" && "DPE"].filter(Boolean);
-      if (failed.length) market.error = `Source indisponible pour le moment : ${failed.join(", ")}. Relancer dans quelques minutes.`;
+      if (failed.length) market.error = `Source momentanément saturée ou indisponible : ${failed.join(", ")}. Relancer dans une minute.`;
       // Alimente les indicateurs secteur du mode complet
       if (market.dvf?.sales.length) setExpert("analysisMarketPriceSqm", Math.round(median(market.dvf.sales.map((x) => x.sqm))));
       if (market.commune?.population) setExpert("analysisPopulation", market.commune.population);
@@ -535,7 +579,7 @@
       mode = localStorage.getItem("laminiereAnalyseMode") || "simple";
     } catch (e) {}
     document.querySelectorAll("[data-lm-mode]").forEach((b) => b.addEventListener("click", () => setMode(b.dataset.lmMode)));
-    ["sArea", "sPrice", "sWorks", "sRent", "sContribution"].forEach((id) => $(`#${id}`)?.addEventListener("input", update));
+    ["sArea", "sPrice", "sWorks", "sRent", "sContribution", "sLocalArea", "sLocalRent"].forEach((id) => $(`#${id}`)?.addEventListener("input", update));
     ["sType", "sDpe"].forEach((id) =>
       $(`#${id}`)?.addEventListener("change", () => {
         if (id === "sType" && market.key) analyse();
@@ -554,7 +598,7 @@
     });
     $("#sAnalyse")?.addEventListener("click", analyse);
     $("#sReset")?.addEventListener("click", () => {
-      ["sAddress", "sArea", "sPrice", "sWorks", "sRent", "sContribution"].forEach((id) => ($(`#${id}`).value = ""));
+      ["sAddress", "sArea", "sPrice", "sWorks", "sRent", "sContribution", "sLocalArea", "sLocalRent"].forEach((id) => $(`#${id}`) && ($(`#${id}`).value = ""));
       $("#sDpe").value = "";
       Object.assign(market, { key: "", dvf: null, rent: null, dpe: null, commune: null, error: "" });
       update();
