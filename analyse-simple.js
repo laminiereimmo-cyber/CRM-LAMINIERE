@@ -1,4 +1,4 @@
-/* LaMinière CRM — Analyse simple + données marché (v22.8)
+/* LaMinière CRM — Analyse simple + données marché (v22.9)
    Sources publiques, sans clé :
    - Ventes DVF : API DVF open data du Cerema (apidf-preprod.cerema.fr)
    - Loyers de marché : carte des loyers ANIL / DHUP 2025 (tabular-api.data.gouv.fr)
@@ -27,6 +27,7 @@
     dependance: { label: "dépendances", of: "de dépendances", codes: ["131"] }
   };
   const LOT_TYPES = { Appartement: "appartement", "Local commercial": "local", Autre: "dependance" };
+  const COMMERCIAL_PREMIUM = 0.02;
   const LOT_SHORT = { Appartement: "Appart.", "Local commercial": "Local", Autre: "Autre" };
   const TYPES = {
     appartement: { label: "Appartement", asset: "Appartement ancien" },
@@ -381,7 +382,13 @@
     const ref = market.rent?.appartement;
     const sectorYield = appStats && ref ? (ref.sqm * 12) / appStats.median : 0;
     const annualRent = s.rent * 12;
-    const byRent = sectorYield && annualRent ? annualRent / sectorYield : 0;
+    // Les murs commerciaux se vendent plus cher en rendement (risque locatif) : +2 points par rapport aux logements.
+    const yieldFor = (lot) => (lot.type === "Appartement" ? sectorYield : sectorYield + COMMERCIAL_PREMIUM);
+    rows.forEach((r) => {
+      r.yield = sectorYield ? yieldFor(r.lot) : 0;
+      r.byRent = r.yield && toNum(r.lot.currentRent) ? (toNum(r.lot.currentRent) * 12) / r.yield : 0;
+    });
+    const byRent = sectorYield && annualRent ? rows.reduce((t, r) => t + r.byRent, 0) : 0;
     const values = [byLots, byRent].filter((x) => x > 0);
     const retained = values.length ? values.reduce((a, b) => a + b, 0) / values.length : 0;
     return { mode: "lots", rows, byLots, byRent, sectorYield, annualRent, retained, sales: by.appartement || [] };
@@ -642,7 +649,7 @@
             val.byRent
               ? `<div class="lm-table-wrap"><table class="lm-sheet lm-kv"><tbody>
             <tr><td>Loyers annuels</td><td class="r">${euro(val.annualRent)}</td></tr>
-            <tr><td>Rendement brut du secteur <small>loyer ANIL des appartements ÷ prix DVF des appartements</small></td><td class="r">${num(val.sectorYield * 100, 1)} %</td></tr>
+            <tr><td>Rendement brut du secteur <small>loyer ANIL des appartements ÷ prix DVF des appartements${hasLocalLot(s) ? ` · locaux commerciaux : ${num((val.sectorYield + COMMERCIAL_PREMIUM) * 100, 1)} %` : ""}</small></td><td class="r">${num(val.sectorYield * 100, 1)} %</td></tr>
             <tr class="total"><td>Valeur par les loyers <small>ce qu'un investisseur paierait pour ces loyers</small></td><td class="r">${euro(val.byRent)}</td></tr>
           </tbody></table></div>`
               : ""
@@ -725,6 +732,7 @@
         });
       } else hint.textContent = view.rent && s.useLots ? `Marché logements : ${euro(view.rent.marketTotal)}` : "";
     }
+    renderLotsAnalysis(view);
     const priceHint = $("#sPriceHint");
     if (priceHint) priceHint.textContent = val?.retained ? `Valeur estimée : ${euro(val.retained)}` : "";
     const pnoHint = $("#sPnoHint");
@@ -735,6 +743,44 @@
     if (feeWHint) feeWHint.textContent = s.feeWorks === null ? `auto 7 % : ${euro(toNum($("#analysisFeeOnWorks")?.value))}` : "";
     const sum = $("#sChargesSummary");
     if (sum) sum.textContent = `${num(s.rate, 2)} % sur ${num(s.duration)} ans · notaire ${euro(toNum($("#analysisAcquisitionFees")?.value))} · charges ${euro(ch.monthly + ch.taxMonth + insMonth)} / mois`;
+  }
+  // Analyse écrite lot par lot, sous le loyer : loyer actuel, loyer de marché, valeur DVF, valeur par le loyer.
+  function renderLotsAnalysis(view) {
+    const host = $("#sLotsAnalysis");
+    if (!host) return;
+    const { s, val } = view;
+    if (!s.useLots || !val || val.mode !== "lots") {
+      host.innerHTML = s.useLots ? `<p class="lm-lots-hint">Cliquer sur Analyser pour obtenir la valeur lot par lot.</p>` : "";
+      return;
+    }
+    const y = val.sectorYield;
+    const rows = val.rows.map((r) => {
+      const rent = toNum(r.lot.currentRent);
+      const ref = r.lot.type === "Appartement" ? rentRefFor("appartement", r.surface) : null;
+      const marketRent = ref ? ref.sqm * r.surface : null;
+      const byRent = r.byRent || 0;
+      const parts = [r.value, byRent].filter((x) => x > 0);
+      const retained = parts.length ? parts.reduce((t, x) => t + x, 0) / parts.length : 0;
+      return { r, rent, marketRent, byRent, retained };
+    });
+    const tot = (k) => rows.reduce((t, x) => t + (x[k] || 0), 0);
+    host.innerHTML = `
+      <div class="lm-lots-analysis">
+        <div class="lm-subhead">Analyse lot par lot</div>
+        <div class="lm-table-wrap"><table class="lm-sheet lm-lots-val">
+          <thead><tr><th>Lot</th><th class="r">Loyer</th><th class="r">Marché</th><th class="r">Valeur m²</th><th class="r">Valeur loyer</th><th class="r">Retenue</th></tr></thead>
+          <tbody>
+            ${rows
+              .map(
+                (x) => `<tr><td>${esc(x.r.lot.label || x.r.lot.type)}<small>${esc(LOT_SHORT[x.r.lot.type] || x.r.lot.type)} · ${num(x.r.surface)} m²</small></td><td class="r">${euro(x.rent)}</td><td class="r">${x.marketRent ? euro(x.marketRent) : "bail"}</td><td class="r">${keuro(x.r.value)}</td><td class="r">${x.byRent ? keuro(x.byRent) : "–"}</td><td class="r"><strong>${keuro(x.retained)}</strong></td></tr>`
+              )
+              .join("")}
+            <tr class="total"><td>Immeuble</td><td class="r">${euro(tot("rent"))}</td><td class="r">${view.rent ? euro(view.rent.marketTotal) : "–"}</td><td class="r">${keuro(val.byLots)}</td><td class="r">${val.byRent ? keuro(val.byRent) : "–"}</td><td class="r"><strong>${keuro(val.retained)}</strong></td></tr>
+          </tbody>
+        </table></div>
+        <p class="lm-lots-verdict">Valeur globale estimée : <strong>${euro(val.retained)}</strong>${s.price ? ` pour un prix demandé de ${euro(s.price)} (${pct(view.priceGap || 0)}).` : "."}</p>
+        <p class="lm-note">Valeur m² : prix DVF du type de lot × surface. Valeur loyer : loyer annuel ÷ rendement du secteur (${num(y * 100, 1)} % pour les logements${hasLocalLot(s) ? `, ${num((y + COMMERCIAL_PREMIUM) * 100, 1)} % pour un local commercial, plus risqué` : ""}). Marché : loyer ANIL des logements${hasLocalLot(s) ? ", le local se lit sur son bail" : ""}.</p>
+      </div>`;
   }
   const hasLocalLot = (s) => s.useLots && s.lots.some((l) => l.type !== "Appartement");
 
