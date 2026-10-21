@@ -1271,6 +1271,9 @@ function applySelectedAddress() {
   document.querySelector("#analysisLon").value = lon;
   document.querySelector("#analysisCity").value = match.properties.city || "";
   document.querySelector("#analysisPostcode").value = match.properties.postcode || "";
+  const citycodeInput = document.querySelector("#analysisCitycode");
+  if (citycodeInput) citycodeInput.value = match.properties.citycode || "";
+  document.querySelector("#analysisLat").dataset.address = value;
   renderAnalysis();
 }
 
@@ -1418,6 +1421,11 @@ function renderAnalysis() {
     ["Tension locative", Math.min(100, rentalPressure || tensionScore), `${rentalPressure || tensionScore}%`],
     ["Revenu médian", medianIncome ? Math.min(100, Math.round((medianIncome / 30000) * 100)) : 0, medianIncome ? formatExactMoney(medianIncome) : "À renseigner"]
   ];
+  window.lastAnalysis = {
+    price, area, rent, works, furniture, acquisitionFees, bankFees, brokerFees, laminiereFees,
+    totalCost, contribution, borrowedCapital, creditWithInsurance, operatingCosts, cashflow,
+    grossYield, metrics
+  };
   const alerts = [
     grossYield >= 8 ? "Rendement brut compatible avec une lecture immeuble." : "Rendement à challenger avec DVF, loyers réels et charges.",
     cashflow >= 0 ? "Cashflow estimé positif avant fiscalité." : "Cashflow estimé négatif avant fiscalité, ajuster prix, travaux ou loyers.",
@@ -5476,25 +5484,11 @@ async function fetchDvfMarketPrices() {
   }
   showToast("Recherche des ventes DVF autour de l'adresse...");
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 7000);
-    const response = await fetch(`https://api.cquest.org/dvf?lat=${lat}&lon=${lon}&dist=400`, { signal: controller.signal });
-    clearTimeout(timeoutId);
-    if (!response.ok) throw new Error(`DVF HTTP ${response.status}`);
-    const data = await response.json();
-    const mutations = data.resultats || data.features || (Array.isArray(data) ? data : []);
+    // Source Cerema (l'ancienne API cquest ne répond plus). Seuls les appartements ont un équivalent DVF fiable ici.
+    if (!window.LMMarket) throw new Error("Module marché absent");
     const pricesByType = {};
-    mutations.forEach((entry) => {
-      const record = entry.properties || entry;
-      const type = record.type_local;
-      const valeur = Number(record.valeur_fonciere);
-      const surface = Number(record.surface_reelle_bati);
-      if (!type || !valeur || !surface) return;
-      const pricePerSqm = valeur / surface;
-      if (!Number.isFinite(pricePerSqm) || pricePerSqm <= 0) return;
-      if (!pricesByType[type]) pricesByType[type] = [];
-      pricesByType[type].push(pricePerSqm);
-    });
+    const appart = await window.LMMarket.fetchDvfAround(Number(lat), Number(lon), "appartement");
+    if (appart.sales.length) pricesByType.Appartement = appart.sales.map((sale) => sale.sqm);
     const foundTypes = Object.keys(pricesByType);
     if (!foundTypes.length) {
       showToast("Aucune vente DVF exploitable trouvée à proximité (secteur peu dense ou peu de ventes récentes).");

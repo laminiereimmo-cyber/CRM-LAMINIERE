@@ -15,7 +15,7 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css?v=22.5" />
+    <link rel="stylesheet" href="styles.css?v=22.6" />
   </head>
   <body class="notranslate" translate="no">
     <div class="app-shell">
@@ -408,6 +408,62 @@
           <div class="prospect-grid" id="coachingGrid"></div>
         </section>
         <section class="view" id="analysis" aria-label="Analyse adresse">
+          <div class="lm-mode-switch" role="tablist" aria-label="Mode d'analyse">
+            <button type="button" data-lm-mode="simple" class="active">Mode simple</button>
+            <button type="button" data-lm-mode="complet">Mode complet</button>
+          </div>
+          <div id="lmSimple">
+            <div class="section-toolbar">
+              <div>
+                <p class="eyebrow">Analyse rapide</p>
+                <h2>8 cases, un clic, un verdict</h2>
+              </div>
+              <button class="ghost-button" id="sBank" type="button" onclick="document.querySelector('#exportAnalysisBank')?.click()">
+                <span data-icon="file-down"></span>
+                Dossier bancaire
+              </button>
+              <button class="ghost-button" id="sFiche" type="button" onclick="document.querySelector('#printClientFiche')?.click()">
+                <span data-icon="file-down"></span>
+                Fiche client
+              </button>
+            </div>
+            <div class="lm-simple-layout">
+              <section class="panel lm-input-panel">
+                <table class="lm-sheet lm-inputs">
+                  <thead><tr><th>Le bien</th><th>À remplir</th></tr></thead>
+                  <tbody>
+                    <tr><td>Adresse</td><td><input id="sAddress" type="text" list="addressSuggestions" autocomplete="off" placeholder="12 rue de la République, Nîmes" /></td></tr>
+                    <tr><td>Type de bien</td><td>
+                      <select id="sType">
+                        <option value="appartement">Appartement</option>
+                        <option value="maison">Maison</option>
+                        <option value="immeuble">Immeuble / plusieurs logements</option>
+                      </select></td></tr>
+                    <tr><td>Surface (m²)</td><td><input id="sArea" type="number" inputmode="decimal" min="0" /></td></tr>
+                    <tr><td>Prix demandé FAI (€)<small id="sPriceHint"></small></td><td><input id="sPrice" type="number" inputmode="decimal" min="0" /></td></tr>
+                    <tr><td>Travaux (€)</td><td><input id="sWorks" type="number" inputmode="decimal" min="0" /></td></tr>
+                    <tr><td>Loyer prévu / mois (€)<small id="sRentHint"></small></td><td><input id="sRent" type="number" inputmode="decimal" min="0" /></td></tr>
+                    <tr><td>DPE actuel</td><td>
+                      <select id="sDpe">
+                        <option value="">Je ne sais pas</option>
+                        <option>A</option><option>B</option><option>C</option><option>D</option><option>E</option><option>F</option><option>G</option>
+                      </select></td></tr>
+                    <tr><td>Apport (€)<small>vide = 10 % du projet</small></td><td><input id="sContribution" type="number" inputmode="decimal" min="0" placeholder="auto" /></td></tr>
+                  </tbody>
+                </table>
+                <div class="lm-actions">
+                  <button class="primary-button" id="sAnalyse" type="button">
+                    <span data-icon="search-check"></span>
+                    Analyser
+                  </button>
+                  <button class="ghost-button" id="sReset" type="button">Vider</button>
+                </div>
+                <p class="lm-note">Cases jaunes = à saisir, comme dans Excel. Entrée pour lancer l'analyse.</p>
+              </section>
+              <div class="lm-results" id="lmSimpleResults"></div>
+            </div>
+          </div>
+          <div id="lmExpert" class="hidden">
           <div class="section-toolbar">
             <div>
               <p class="eyebrow">Pré-analyse</p>
@@ -660,6 +716,7 @@
               <input id="analysisLat" type="hidden" />
               <input id="analysisLon" type="hidden" />
               <input id="analysisCity" type="hidden" />
+              <input id="analysisCitycode" type="hidden" />
               <div class="lots-estimator full" id="lotsPanel">
                 <div class="linked-fee-heading">
                   <span>Avis de valeur — lots de l'immeuble</span>
@@ -715,6 +772,7 @@
             </div>
           </section>
           <div class="analysis-grid" id="analysisResults"></div>
+          </div>
         </section>
 
         <section class="view" id="pipeline" aria-label="Opérations accompagnées">
@@ -1072,7 +1130,8 @@
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.js"></script>
-    <script src="app.js?v=22.5"></script>
+    <script src="app.js?v=22.6"></script>
+    <script src="analyse-simple.js?v=22.6"></script>
   </body>
 </html>
 

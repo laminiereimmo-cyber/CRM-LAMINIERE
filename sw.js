@@ -1,9 +1,10 @@
-const CACHE_NAME = "laminiere-crm-v22-5";
+const CACHE_NAME = "laminiere-crm-v22-6";
 const APP_SHELL = [
   "./",
   "./index.html",
   "./styles.css",
   "./app.js",
+  "./analyse-simple.js",
   "./manifest.json",
   "./icon.svg",
   "./laminiere-logo.svg",
