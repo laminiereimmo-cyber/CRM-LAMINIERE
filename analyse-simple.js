@@ -1,4 +1,4 @@
-/* LaMinière CRM — Analyse simple + données marché (v22.9)
+/* LaMinière CRM — Analyse simple + données marché (v23.0)
    Sources publiques, sans clé :
    - Ventes DVF : API DVF open data du Cerema (apidf-preprod.cerema.fr)
    - Loyers de marché : carte des loyers ANIL / DHUP 2025 (tabular-api.data.gouv.fr)
@@ -47,6 +47,11 @@
   };
 
   const market = { key: "", dvf: null, rent: null, dpe: null, commune: null, loading: false, error: "" };
+  // Vue client : masque tout ce qui touche à la valeur de marché (prix vs marché, valeur du bien, analyse lot par lot).
+  let clientView = false;
+  try {
+    clientView = localStorage.getItem("laminiereVueClient") === "1";
+  } catch (e) {}
 
   // ---------- utilitaires ----------
   const $ = (sel) => document.querySelector(sel);
@@ -55,7 +60,7 @@
   const euro = (v) => new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(Math.round(v || 0)) + " €";
   const keuro = (v) => `${num((v || 0) / 1000)} k€`;
   const pct = (v, d = 0) => `${v > 0 ? "+" : ""}${num(v * 100, d)} %`;
-  const toNum = (v) => Number(String(v ?? "").replace(/\s/g, "").replace(",", ".")) || 0;
+  const toNum = (v) => Number(String(v ?? "").replace(/[\s%€]/g, "").replace(",", ".")) || 0;
   const median = (arr) => {
     if (!arr.length) return 0;
     const s = [...arr].sort((a, b) => a - b);
@@ -283,6 +288,7 @@
       propertyTax: n("sPropertyTax"),
       pno: v("sPno") === "" ? null : n("sPno"),
       managementRate: n("sManagement"),
+      gliRate: n("sGli"),
       otherCosts: n("sOtherCosts")
     };
   }
@@ -291,7 +297,8 @@
   function chargesOf(s) {
     const pnoYear = s.pno === null ? Math.round(2 * s.area) : s.pno;
     const management = (s.rent * s.managementRate) / 100;
-    return { pnoYear, management, other: s.otherCosts, monthly: pnoYear / 12 + management + s.otherCosts, taxMonth: s.propertyTax / 12 };
+    const gli = (s.rent * s.gliRate) / 100;
+    return { pnoYear, management, gli, other: s.otherCosts, monthly: pnoYear / 12 + management + gli + s.otherCosts, taxMonth: s.propertyTax / 12 };
   }
 
   function setExpert(id, value, manual) {
@@ -475,6 +482,7 @@
       view.checks.push({ key: "dpe", label: s.useLots ? "DPE des logements" : "DPE du bien", level: "grey", value: "?", text: "DPE inconnu : le demander à l'agence avant toute offre." });
     }
 
+    if (clientView) view.checks = view.checks.filter((c) => c.key !== "prix");
     const reds = view.checks.filter((c) => c.level === "red").length;
     const oranges = view.checks.filter((c) => c.level === "orange").length;
     view.verdict = reds >= 2 ? { level: "red", label: "À éviter en l'état" } : reds === 1 ? { level: "orange", label: "Possible, mais un point bloque" } : oranges >= 2 ? { level: "orange", label: "Intéressant, à négocier" } : { level: "green", label: "Bon dossier à creuser" };
@@ -586,12 +594,13 @@
           ["Taxe foncière", -ch.taxMonth, ""],
           ["PNO (assurance propriétaire)", -ch.pnoYear / 12, ""],
           ["Gestion locative", -ch.management, ""],
+          ["GLI (garantie loyers impayés)", -ch.gli, ""],
           ["Autres charges (copro, eau, ménage)", -ch.other, ""],
           ["Cashflow avant impôts", a.cashflow, "total", true]
         ].filter((r) => r[3] || Math.round(r[1]) !== 0)
       : [];
     const grossYield = a.totalCost ? (s.rent * 12) / a.totalCost : 0;
-    const netYield = a.totalCost ? (s.rent * 12 - s.propertyTax - ch.pnoYear - ch.management * 12 - ch.other * 12) / a.totalCost : 0;
+    const netYield = a.totalCost ? (s.rent * 12 - s.propertyTax - ch.pnoYear - ch.management * 12 - ch.gli * 12 - ch.other * 12) / a.totalCost : 0;
 
     let html = `
       <div class="lm-verdict lm-${view.verdict.level}">
@@ -622,7 +631,7 @@
             <tr><td>Apport</td><td class="r">${euro(a.contribution)}</td></tr>
             <tr><td>Montant emprunté <small>${num(s.rate, 2)} % sur ${num(s.duration)} ans</small></td><td class="r">${euro(a.borrowedCapital)}</td></tr>
             <tr><td>Rendement brut <small>loyers annuels ÷ coût total</small></td><td class="r">${num(grossYield * 100, 2)} %</td></tr>
-            <tr class="total"><td>Rentabilité nette <small>après taxe foncière, PNO, gestion et charges, avant crédit</small></td><td class="r">${num(netYield * 100, 2)} %</td></tr>
+            <tr class="total"><td>Rentabilité nette <small>après taxe foncière, PNO, gestion, GLI et charges, avant crédit</small></td><td class="r">${num(netYield * 100, 2)} %</td></tr>
             ${a.metrics && a.contribution > 0 && Number.isFinite(a.metrics.irr) ? `<tr><td>TRI sur ${a.metrics.years} ans <small>(revente comprise, avant impôts)</small></td><td class="r">${num(a.metrics.irr * 100, 1)} %</td></tr>` : ""}
           </tbody>
         </table></div>
@@ -630,7 +639,7 @@
     }
 
     const val = view.val;
-    if (market.dvf) {
+    if (market.dvf && !clientView) {
       html += `<section class="lm-block"><h3>Valeur du bien <small>ventes réelles DVF · rayon ${num(market.dvf.radius)} m</small></h3>`;
       if (val && val.mode === "lots") {
         html += `
@@ -734,7 +743,13 @@
     }
     renderLotsAnalysis(view);
     const priceHint = $("#sPriceHint");
-    if (priceHint) priceHint.textContent = val?.retained ? `Valeur estimée : ${euro(val.retained)}` : "";
+    if (priceHint) priceHint.textContent = val?.retained && !clientView ? `Valeur estimée : ${euro(val.retained)}` : "";
+    const cvBtn = $("#sClientView");
+    if (cvBtn) {
+      cvBtn.classList.toggle("is-on", clientView);
+      cvBtn.setAttribute("aria-pressed", clientView ? "true" : "false");
+    }
+    $("#sClientBadge")?.classList.toggle("hidden", !clientView);
     const pnoHint = $("#sPnoHint");
     if (pnoHint) pnoHint.textContent = s.pno === null ? `auto : ${euro(ch.pnoYear)} (2 €/m²)` : "";
     const feeHint = $("#sFeeHint");
@@ -749,6 +764,10 @@
     const host = $("#sLotsAnalysis");
     if (!host) return;
     const { s, val } = view;
+    if (clientView) {
+      host.innerHTML = "";
+      return;
+    }
     if (!s.useLots || !val || val.mode !== "lots") {
       host.innerHTML = s.useLots ? `<p class="lm-lots-hint">Cliquer sur Analyser pour obtenir la valeur lot par lot.</p>` : "";
       return;
@@ -768,14 +787,14 @@
       <div class="lm-lots-analysis">
         <div class="lm-subhead">Analyse lot par lot</div>
         <div class="lm-table-wrap"><table class="lm-sheet lm-lots-val">
-          <thead><tr><th>Lot</th><th class="r">Loyer</th><th class="r">Marché</th><th class="r">Valeur m²</th><th class="r">Valeur loyer</th><th class="r">Retenue</th></tr></thead>
+          <thead><tr><th>Lot</th><th class="r">Loyer</th><th class="r">Marché</th><th class="r">Valeur</th></tr></thead>
           <tbody>
             ${rows
               .map(
-                (x) => `<tr><td>${esc(x.r.lot.label || x.r.lot.type)}<small>${esc(LOT_SHORT[x.r.lot.type] || x.r.lot.type)} · ${num(x.r.surface)} m²</small></td><td class="r">${euro(x.rent)}</td><td class="r">${x.marketRent ? euro(x.marketRent) : "bail"}</td><td class="r">${keuro(x.r.value)}</td><td class="r">${x.byRent ? keuro(x.byRent) : "–"}</td><td class="r"><strong>${keuro(x.retained)}</strong></td></tr>`
+                (x) => `<tr><td>${esc(x.r.lot.label || x.r.lot.type)}<small>${esc(LOT_SHORT[x.r.lot.type] || x.r.lot.type)} · ${num(x.r.surface)} m²</small></td><td class="r">${euro(x.rent)}</td><td class="r">${x.marketRent ? euro(x.marketRent) : "bail"}</td><td class="r"><strong>${keuro(x.retained)}</strong><small>m² ${keuro(x.r.value)}${x.byRent ? ` · loyer ${keuro(x.byRent)}` : ""}</small></td></tr>`
               )
               .join("")}
-            <tr class="total"><td>Immeuble</td><td class="r">${euro(tot("rent"))}</td><td class="r">${view.rent ? euro(view.rent.marketTotal) : "–"}</td><td class="r">${keuro(val.byLots)}</td><td class="r">${val.byRent ? keuro(val.byRent) : "–"}</td><td class="r"><strong>${keuro(val.retained)}</strong></td></tr>
+            <tr class="total"><td>Immeuble</td><td class="r">${euro(tot("rent"))}</td><td class="r">${view.rent ? euro(view.rent.marketTotal) : "–"}</td><td class="r"><strong>${keuro(val.retained)}</strong><small>m² ${keuro(val.byLots)}${val.byRent ? ` · loyer ${keuro(val.byRent)}` : ""}</small></td></tr>
           </tbody>
         </table></div>
         <p class="lm-lots-verdict">Valeur globale estimée : <strong>${euro(val.retained)}</strong>${s.price ? ` pour un prix demandé de ${euro(s.price)} (${pct(view.priceGap || 0)}).` : "."}</p>
@@ -891,10 +910,17 @@
     // Valeur par défaut de l'assurance de prêt (0,25 % du capital par an, profil prudent)
     if ($("#sInsuranceRate") && $("#sInsuranceRate").value === "") $("#sInsuranceRate").value = "0.25";
     document.querySelectorAll("[data-lm-mode]").forEach((b) => b.addEventListener("click", () => setMode(b.dataset.lmMode)));
-    const inputs = ["sArea", "sPrice", "sWorks", "sRent", "sContribution", "sRate", "sDuration", "sInsuranceRate", "sBankFees", "sFeeAcq", "sFeeWorks", "sFurniture", "sPropertyTax", "sPno", "sManagement", "sOtherCosts"];
+    const inputs = ["sArea", "sPrice", "sWorks", "sRent", "sContribution", "sRate", "sDuration", "sInsuranceRate", "sBankFees", "sFeeAcq", "sFeeWorks", "sFurniture", "sPropertyTax", "sPno", "sManagement", "sGli", "sOtherCosts"];
     inputs.forEach((id) => $(`#${id}`)?.addEventListener("input", () => update()));
     $("#sDpe")?.addEventListener("change", () => update());
     $("#sDmto")?.addEventListener("change", () => update());
+    $("#sClientView")?.addEventListener("click", () => {
+      clientView = !clientView;
+      try {
+        localStorage.setItem("laminiereVueClient", clientView ? "1" : "0");
+      } catch (e) {}
+      render();
+    });
     // Si quelqu'un change les droits de mutation dans le mode complet, le mode simple suit.
     $("#analysisDmtoMode")?.addEventListener("change", (e) => $("#sDmto") && ($("#sDmto").value = e.target.value));
     $("#sType")?.addEventListener("change", () => {
@@ -942,7 +968,7 @@
     $("#sAnalyse")?.addEventListener("click", analyse);
     $("#sReset")?.addEventListener("click", () => {
       ["sAddress", "sArea", "sPrice", "sWorks", "sRent", "sContribution", "sFeeAcq", "sFeeWorks", "sPno"].forEach((id) => $(`#${id}`) && ($(`#${id}`).value = ""));
-      ["sFurniture", "sManagement", "sOtherCosts"].forEach((id) => $(`#${id}`) && ($(`#${id}`).value = "0"));
+      ["sFurniture", "sManagement", "sGli", "sOtherCosts"].forEach((id) => $(`#${id}`) && ($(`#${id}`).value = "0"));
       $("#sDpe").value = "";
       lotsRef().splice(0);
       syncLotsExpert();

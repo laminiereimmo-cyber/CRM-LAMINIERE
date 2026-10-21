@@ -15,7 +15,7 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css?v=22.9" />
+    <link rel="stylesheet" href="styles.css?v=23.0" />
   </head>
   <body class="notranslate" translate="no">
     <div class="app-shell">
@@ -426,7 +426,12 @@
                 <span data-icon="file-down"></span>
                 Fiche client
               </button>
+              <button class="ghost-button" id="sClientView" type="button" aria-pressed="false" title="Masquer la valeur de marché devant un client">
+                <span data-icon="eye"></span>
+                Vue client
+              </button>
             </div>
+            <p class="lm-client-badge hidden" id="sClientBadge">Vue client : la valeur de marché est masquée. Re-cliquer sur « Vue client » pour la réafficher.</p>
             <div class="lm-simple-layout">
               <section class="panel lm-input-panel">
                 <table class="lm-sheet lm-inputs">
@@ -467,9 +472,9 @@
                   <summary><strong>Financement et charges</strong> <small id="sChargesSummary"></small></summary>
                   <table class="lm-sheet lm-inputs">
                     <tbody>
-                      <tr><td>Taux du crédit (%)</td><td><input id="sRate" type="number" inputmode="decimal" step="0.05" min="0" /></td></tr>
+                      <tr><td>Taux du crédit</td><td class="lm-pct"><input id="sRate" type="text" inputmode="decimal" /></td></tr>
                       <tr><td>Durée (ans)</td><td><input id="sDuration" type="number" inputmode="decimal" min="1" /></td></tr>
-                      <tr><td>Assurance de prêt (% / an)<small>du capital emprunté</small></td><td><input id="sInsuranceRate" type="number" inputmode="decimal" step="0.01" min="0" /></td></tr>
+                      <tr><td>Assurance de prêt<small>% du capital emprunté, par an</small></td><td class="lm-pct"><input id="sInsuranceRate" type="text" inputmode="decimal" /></td></tr>
                       <tr><td>Droits de mutation (notaire)</td><td>
                         <select id="sDmto">
                           <option value="standard">Taux majoré (investisseur)</option>
@@ -481,7 +486,8 @@
                       <tr><td>Meubles (€)</td><td><input id="sFurniture" type="number" inputmode="decimal" min="0" /></td></tr>
                       <tr><td>Taxe foncière (€ / an)</td><td><input id="sPropertyTax" type="number" inputmode="decimal" min="0" /></td></tr>
                       <tr><td>PNO (€ / an)<small id="sPnoHint"></small></td><td><input id="sPno" type="number" inputmode="decimal" min="0" placeholder="auto" /></td></tr>
-                      <tr><td>Gestion locative (% des loyers)</td><td><input id="sManagement" type="number" inputmode="decimal" step="0.1" min="0" value="0" /></td></tr>
+                      <tr><td>Gestion locative<small>% des loyers</small></td><td class="lm-pct"><input id="sManagement" type="text" inputmode="decimal" value="0" /></td></tr>
+                      <tr><td>GLI (loyers impayés)<small>% des loyers</small></td><td class="lm-pct"><input id="sGli" type="text" inputmode="decimal" value="0" /></td></tr>
                       <tr><td>Autres charges (€ / mois)<small>copro, eau, ménage</small></td><td><input id="sOtherCosts" type="number" inputmode="decimal" min="0" value="0" /></td></tr>
                     </tbody>
                   </table>
@@ -1165,8 +1171,8 @@
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.js"></script>
-    <script src="app.js?v=22.9"></script>
-    <script src="analyse-simple.js?v=22.9"></script>
+    <script src="app.js?v=23.0"></script>
+    <script src="analyse-simple.js?v=23.0"></script>
   </body>
 </html>
 

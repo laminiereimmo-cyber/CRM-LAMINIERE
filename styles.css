@@ -3246,6 +3246,37 @@ tbody tr[data-contact-id]:hover {
   color: var(--muted);
   font-size: 12.5px;
 }
+.lm-inputs td.lm-pct {
+  position: relative;
+}
+.lm-inputs td.lm-pct input {
+  padding-right: 28px;
+}
+.lm-inputs td.lm-pct::after {
+  content: "%";
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted);
+  pointer-events: none;
+}
+#sClientView.is-on {
+  background: var(--ink);
+  color: #fff;
+  border-color: var(--ink);
+}
+.lm-client-badge {
+  margin: -6px 0 12px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: #eef2ef;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+.lm-lots-val td.r small {
+  white-space: nowrap;
+}
 .lm-check-main {
   flex: 1;
   min-width: 0;
