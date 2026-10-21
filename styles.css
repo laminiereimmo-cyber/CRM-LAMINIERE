@@ -2899,7 +2899,7 @@ tbody tr[data-contact-id]:hover {
 }
 .lm-simple-layout {
   display: grid;
-  grid-template-columns: minmax(300px, 420px) minmax(0, 1fr);
+  grid-template-columns: minmax(320px, 470px) minmax(0, 1fr);
   gap: 18px;
   align-items: start;
 }
@@ -3082,6 +3082,127 @@ tbody tr[data-contact-id]:hover {
 .lm-mixte-row td:first-child {
   padding-left: 22px;
   font-weight: 500;
+}
+.lm-calc {
+  background: #eef2ef !important;
+}
+.lm-calc input {
+  color: var(--muted);
+}
+.lm-inputs .lm-lots-cell {
+  padding: 6px !important;
+  background: #fbfcfb !important;
+  width: auto;
+}
+.lm-lots {
+  font-size: 13px;
+}
+.lm-lots th {
+  font-size: 10.5px !important;
+  padding: 5px 6px !important;
+}
+.lm-lots td {
+  padding: 0 !important;
+  background: #fff8d6;
+}
+.lm-lots input,
+.lm-lots select {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  padding: 7px 6px;
+  background: transparent;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.lm-lots input[type="number"] {
+  text-align: right;
+  min-width: 52px;
+}
+.lm-lots td:first-child input {
+  min-width: 58px;
+}
+.lm-lots td:last-child {
+  background: transparent;
+  width: 26px;
+}
+.lm-x {
+  border: 0;
+  background: none;
+  color: var(--rose);
+  font-size: 17px;
+  line-height: 1;
+  padding: 4px 6px;
+}
+.lm-muted {
+  color: var(--muted);
+  padding: 7px 6px;
+  display: inline-block;
+}
+.lm-empty {
+  background: #fff !important;
+  text-align: center;
+}
+.lm-lots-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 2px 2px;
+}
+.lm-lots-actions small {
+  margin-left: auto;
+  color: var(--muted);
+}
+.lm-lots-actions .lm-link {
+  font-size: 13px;
+  padding: 0;
+}
+.lm-charges {
+  margin-top: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 0 10px;
+  background: var(--panel);
+}
+.lm-charges summary {
+  cursor: pointer;
+  padding: 10px 0;
+  list-style-position: inside;
+}
+.lm-charges summary small {
+  display: block;
+  margin-left: 18px;
+  color: var(--muted);
+  font-weight: 500;
+}
+.lm-charges[open] summary {
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 8px;
+}
+.lm-charges .lm-inputs {
+  margin-bottom: 10px;
+}
+.lm-inputs {
+  table-layout: fixed;
+}
+.lm-inputs .lm-lots {
+  table-layout: auto;
+}
+.lm-inputs .lm-lots td:first-child {
+  width: auto;
+  background: #fff8d6;
+  font-weight: 400;
+}
+.lm-inputs .lm-lots input,
+.lm-inputs .lm-lots select {
+  text-align: left;
+}
+.lm-inputs .lm-lots input[type="number"] {
+  text-align: right;
+}
+.lm-lots select {
+  min-width: 64px;
 }
 .lm-check-main {
   flex: 1;

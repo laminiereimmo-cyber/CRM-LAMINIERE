@@ -15,7 +15,7 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css?v=22.7" />
+    <link rel="stylesheet" href="styles.css?v=22.8" />
   </head>
   <body class="notranslate" translate="no">
     <div class="app-shell">
@@ -437,16 +437,24 @@
                       <select id="sType">
                         <option value="appartement">Appartement</option>
                         <option value="maison">Maison</option>
-                        <option value="immeuble">Immeuble / plusieurs logements</option>
-                        <option value="mixte">Immeuble mixte (local + logements)</option>
+                        <option value="immeuble">Immeuble (plusieurs lots)</option>
                       </select><small id="sTypeNote" class="lm-type-note"></small></td></tr>
+                    <tr class="lm-lots-row hidden"><td colspan="2" class="lm-lots-cell">
+                      <div class="lm-table-wrap"><table class="lm-sheet lm-lots">
+                        <thead><tr><th>Lot</th><th>Type</th><th class="r">m²</th><th class="r">Loyer HC</th><th>Statut</th><th>DPE</th><th></th></tr></thead>
+                        <tbody id="sLotsBody"></tbody>
+                      </table></div>
+                      <div class="lm-lots-actions">
+                        <button type="button" class="lm-link" id="sAddLotApt">+ Appartement</button>
+                        <button type="button" class="lm-link" id="sAddLotCom">+ Local commercial</button>
+                        <small id="sLotsTotal"></small>
+                      </div>
+                    </td></tr>
                     <tr><td>Surface (m²)</td><td><input id="sArea" type="number" inputmode="decimal" min="0" /></td></tr>
                     <tr><td>Prix demandé FAI (€)<small id="sPriceHint"></small></td><td><input id="sPrice" type="number" inputmode="decimal" min="0" /></td></tr>
                     <tr><td>Travaux (€)</td><td><input id="sWorks" type="number" inputmode="decimal" min="0" /></td></tr>
                     <tr><td>Loyer prévu / mois (€)<small id="sRentHint"></small></td><td><input id="sRent" type="number" inputmode="decimal" min="0" /></td></tr>
-                    <tr class="lm-mixte-row hidden"><td>dont local commercial (m²)</td><td><input id="sLocalArea" type="number" inputmode="decimal" min="0" /></td></tr>
-                    <tr class="lm-mixte-row hidden"><td>dont loyer du local / mois (€)<small>bail commercial</small></td><td><input id="sLocalRent" type="number" inputmode="decimal" min="0" /></td></tr>
-                    <tr><td>DPE actuel</td><td>
+                    <tr class="lm-single-dpe"><td>DPE actuel</td><td>
                       <select id="sDpe">
                         <option value="">Je ne sais pas</option>
                         <option>A</option><option>B</option><option>C</option><option>D</option><option>E</option><option>F</option><option>G</option>
@@ -454,6 +462,29 @@
                     <tr><td>Apport (€)<small>vide = 10 % du projet</small></td><td><input id="sContribution" type="number" inputmode="decimal" min="0" placeholder="auto" /></td></tr>
                   </tbody>
                 </table>
+                <details class="lm-charges">
+                  <summary><strong>Financement et charges</strong> <small id="sChargesSummary"></small></summary>
+                  <table class="lm-sheet lm-inputs">
+                    <tbody>
+                      <tr><td>Taux du crédit (%)</td><td><input id="sRate" type="number" inputmode="decimal" step="0.05" min="0" /></td></tr>
+                      <tr><td>Durée (ans)</td><td><input id="sDuration" type="number" inputmode="decimal" min="1" /></td></tr>
+                      <tr><td>Assurance de prêt (% / an)<small>du capital emprunté</small></td><td><input id="sInsuranceRate" type="number" inputmode="decimal" step="0.01" min="0" /></td></tr>
+                      <tr><td>Droits de mutation (notaire)</td><td>
+                        <select id="sDmto">
+                          <option value="standard">Taux majoré (investisseur)</option>
+                          <option value="firstBuyer">Non majoré (primo-accédant RP)</option>
+                        </select></td></tr>
+                      <tr><td>Frais banque + courtier (€)</td><td><input id="sBankFees" type="number" inputmode="decimal" min="0" /></td></tr>
+                      <tr><td>Honoraires LaMinière acquisition (€)<small id="sFeeHint"></small></td><td><input id="sFeeAcq" type="number" inputmode="decimal" min="0" placeholder="auto" /></td></tr>
+                      <tr><td>Honoraires LaMinière travaux (€)<small id="sFeeWorksHint"></small></td><td><input id="sFeeWorks" type="number" inputmode="decimal" min="0" placeholder="auto" /></td></tr>
+                      <tr><td>Meubles (€)</td><td><input id="sFurniture" type="number" inputmode="decimal" min="0" /></td></tr>
+                      <tr><td>Taxe foncière (€ / an)</td><td><input id="sPropertyTax" type="number" inputmode="decimal" min="0" /></td></tr>
+                      <tr><td>PNO (€ / an)<small id="sPnoHint"></small></td><td><input id="sPno" type="number" inputmode="decimal" min="0" placeholder="auto" /></td></tr>
+                      <tr><td>Gestion locative (% des loyers)</td><td><input id="sManagement" type="number" inputmode="decimal" step="0.1" min="0" value="0" /></td></tr>
+                      <tr><td>Autres charges (€ / mois)<small>copro, eau, ménage</small></td><td><input id="sOtherCosts" type="number" inputmode="decimal" min="0" value="0" /></td></tr>
+                    </tbody>
+                  </table>
+                </details>
                 <div class="lm-actions">
                   <button class="primary-button" id="sAnalyse" type="button">
                     <span data-icon="search-check"></span>
@@ -1133,8 +1164,8 @@
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.js"></script>
-    <script src="app.js?v=22.7"></script>
-    <script src="analyse-simple.js?v=22.7"></script>
+    <script src="app.js?v=22.8"></script>
+    <script src="analyse-simple.js?v=22.8"></script>
   </body>
 </html>
 
